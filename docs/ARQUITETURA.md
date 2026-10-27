@@ -6,7 +6,9 @@
 - `src/storage/snapshotRepository.ts`: leitura e gravação de um snapshot versionado, com adaptador substituível nos testes.
 - `src/storage/repository.ts`: conecta o repositório ao AsyncStorage.
 - `src/state/FinanceContext.tsx`: carrega os registros, serializa as operações de escrita e atualiza a interface somente depois de salvar.
-- `src/screens/`: sete telas funcionais, separadas por responsabilidade.
+- `src/domain/planning.ts` e `models.ts`: cartões, metas, recorrências e resumo para WhatsApp.
+- `src/state/ThemeContext.tsx`: preferência de tema por dispositivo e adaptação ao sistema.
+- `src/screens/`: telas separadas por responsabilidade, incluindo configuração inicial, cartões, metas e recorrências.
 - `src/components/`: botões, campos, cartões, filtros, confirmações e itens reutilizáveis.
 - `src/navigation/`: abas, pilha de telas, parâmetros tipados e proteção de formulários não salvos.
 - `src/services/backup*`: compartilhamento de arquivos no celular e download/seletor de arquivos na web.
@@ -14,7 +16,7 @@
 
 ## Dados e relacionamentos
 
-Todos os IDs são strings. Valores monetários são inteiros em centavos; datas são strings `AAAA-MM-DD`, sem conversão por fuso horário. O backup possui versão de esquema `1`.
+Todos os IDs são strings. Valores monetários são inteiros em centavos; datas são strings `AAAA-MM-DD`, sem conversão por fuso horário. O esquema atual é `2`, com migração dos backups da versão `1` preservando o histórico. As regras da extensão estão em [Versão 1.1](VERSAO-1.1.md).
 
 ```mermaid
 erDiagram
@@ -22,9 +24,13 @@ erDiagram
   Divida ||--o{ Pagamento : recebe
   Pagamento o|--|| Movimentacao : gera
   Categoria ||--o{ Movimentacao : classifica
+  Categoria ||--o{ Meta : acompanha
+  Cartao o|--o{ Movimentacao : financia
+  Recorrencia ||--o{ Ocorrencia : agenda
   Pessoa {
     string id PK
     string name
+    string phone
   }
   Divida {
     string id PK
@@ -55,6 +61,35 @@ erDiagram
     string id PK
     string name
     string type
+  }
+  Cartao {
+    string id PK
+    string name
+    int limit
+    int openingUsed
+  }
+  Meta {
+    string id PK
+    string categoryId FK
+    string type
+    int amount
+    string month
+  }
+  Recorrencia {
+    string id PK
+    string categoryId FK
+    string cardId FK
+    string title
+    int amount
+    string startDate
+    boolean active
+  }
+  Ocorrencia {
+    string id PK
+    string recurrenceId FK
+    string transactionId FK
+    string date
+    string status
   }
 ```
 

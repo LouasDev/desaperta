@@ -25,11 +25,12 @@ import {
 import { RootParams } from '../navigation/types';
 import { useUnsavedChanges } from '../navigation/useUnsavedChanges';
 import { useFinance } from '../state/FinanceContext';
-import { styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 export default function DebtFormScreen({
   route,
   navigation,
 }: NativeStackScreenProps<RootParams, 'DebtForm'>) {
+  const { colors, styles, clay } = useTheme();
   const { data, commit, saving } = useFinance();
   const { notify } = useFeedback();
   const existing = data.debts.find((d) => d.id === route.params?.id);
@@ -43,7 +44,10 @@ export default function DebtFormScreen({
   const [amount, setAmount] = useState(existing ? inputMoney(existing.amount) : '');
   const [date, setDate] = useState(displayDate(existing?.dueDate ?? today()));
   const [error, setError] = useState('');
-  const snapshot = JSON.stringify({ direction, personName, title, amount, date });
+  const [personPhone, setPhone] = useState(
+    data.people.find((p) => p.id === existing?.personId)?.phone ?? '',
+  );
+  const snapshot = JSON.stringify({ direction, personName, title, amount, date, personPhone });
   const initialSnapshot = useRef(snapshot);
   const allowLeave = useUnsavedChanges(snapshot !== initialSnapshot.current, saving);
   const lockedDirection = existing && paidAmount(data, existing.id) > 0;
@@ -56,6 +60,7 @@ export default function DebtFormScreen({
         amount: parseMoney(amount),
         dueDate: parseDate(date),
         direction,
+        personPhone,
       };
       await commit((current) => saveDebt(current, input, existing?.id));
       allowLeave();
@@ -102,6 +107,15 @@ export default function DebtFormScreen({
           placeholder="Ex.: parte do presente, empréstimo"
           value={title}
           onChangeText={setTitle}
+        />
+        <Field
+          label="WhatsApp da pessoa (opcional)"
+          value={personPhone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          maxLength={25}
+          placeholder="DDD + número"
+          hint="Para números brasileiros, informe DDD e número. Para outros países, use + e código do país."
         />
         <Field
           label="Valor total combinado (R$) *"

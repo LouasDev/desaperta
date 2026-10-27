@@ -93,6 +93,7 @@ export function removeCard(data: FinanceData, cardId: string): FinanceData {
   return validateData({ ...data, cards: data.cards.filter((c) => c.id !== cardId) });
 }
 export function saveGoal(data: FinanceData, input: Omit<Goal, 'id'>, editId?: string) {
+  ensure(!editId || data.goals.some((g) => g.id === editId), 'Meta não encontrada.');
   return validateData({
     ...data,
     goals: [...data.goals.filter((g) => g.id !== editId), { ...input, id: editId ?? id() }],

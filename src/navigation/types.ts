@@ -8,7 +8,14 @@ export type TabParams = {
 };
 export type RootParams = {
   Main: NavigatorScreenParams<TabParams> | undefined;
-  TransactionForm: { id?: string; type?: Flow } | undefined;
+  TransactionForm: { id?: string; type?: Flow; cardId?: string } | undefined;
   DebtForm: { id?: string; direction?: Direction } | undefined;
   DebtDetail: { id: string };
+  Cards: undefined;
+  CardForm: { id?: string } | undefined;
+  CardDetail: { id: string };
+  Goals: undefined;
+  GoalForm: { id?: string } | undefined;
+  Recurrences: undefined;
+  RecurrenceForm: { id?: string; type?: Flow } | undefined;
 };

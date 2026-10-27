@@ -8,8 +8,9 @@ import { DebtCard } from '../components/FinanceRows';
 import { Direction, money, remaining } from '../domain/finance';
 import { RootParams, TabParams } from '../navigation/types';
 import { useFinance } from '../state/FinanceContext';
-import { styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 export default function DebtsScreen() {
+  const { colors, styles, clay } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { data } = useFinance();
   const route = useRoute<RouteProp<TabParams, 'Debts'>>();

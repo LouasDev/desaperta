@@ -228,7 +228,7 @@ export function saveDebt(data: FinanceData, input: DebtInput, editId?: string): 
   ) ?? { id: id(), name };
   const person: Person = {
     ...foundPerson,
-    ...(input.personPhone !== undefined
+    ...(input.personPhone !== undefined && (input.personPhone.trim() || editId)
       ? { phone: normalizePhone(input.personPhone) || undefined }
       : {}),
   };

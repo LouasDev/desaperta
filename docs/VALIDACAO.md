@@ -1,5 +1,29 @@
 # Validação da primeira versão funcional
 
+## Versão 1.1 — extensão funcional
+
+- 24 testes automatizados cobrem também configuração inicial, crédito/fatura,
+  metas de gastos e entradas, recorrências, preservação do telefone, mensagem
+  WhatsApp e migração/backup completo do esquema 2.
+- Interface testada em origem separada (`localhost:8084`) com dados fictícios:
+  saldo inicial R$ 200, cartão com limite R$ 100 e R$ 50 usados; compra de R$ 20
+  deixa R$ 30 disponíveis sem reduzir o saldo; meta de R$ 30 em Alimentação fica
+  em R$ 20 (67%).
+- Pagar R$ 70 de fatura libera R$ 100 de limite e deixa R$ 130 no saldo em conta,
+  mantendo a meta em R$ 20. Confirmar assinatura de R$ 10 e mesada de R$ 50 deixa
+  saldo R$ 170, entradas R$ 50 e gastos registrados R$ 30.
+- Tema escuro e dados preservados após reabertura. Contraste conferido em 390 × 844.
+- Cadastro de telefone e prévia da mensagem conferidos com uma pessoa fictícia;
+  nenhum WhatsApp foi enviado durante a validação.
+- TypeScript e formatação verificados novamente. O teste físico de teclado,
+  compartilhamento, seletor de arquivos e abertura do aplicativo WhatsApp continua
+  necessário em aparelho compatível com Expo SDK 54.
+- Bundles finais da versão 1.1 exportados com sucesso para web, Android e iOS.
+  Após a correção dos atributos dos ícones na web, a reabertura não registrou
+  erros novos de renderização no console.
+
+## Histórico da versão 1.0
+
 Data: 27/10/2026. Testes de interface feitos em uma origem separada (`localhost:8083`), com dados fictícios. A origem principal (`localhost:8081`) não recebeu esses cadastros.
 
 ## Etapa 1: regras e armazenamento

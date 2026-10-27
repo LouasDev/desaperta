@@ -163,3 +163,96 @@ test('WhatsApp usa telefone normalizado, restante e saldo líquido entre as duas
   assert.throws(() => f.normalizePhone('123'));
   assert.throws(() => p.whatsappURL('00000000000', message));
 });
+test('nova pendência não apaga telefone cadastrado e edição permite limpar', () => {
+  let data = f.saveDebt(f.emptyData(), {
+    title: 'Um',
+    personName: 'Ana',
+    personPhone: '11999999999',
+    amount: 100,
+    direction: 'receivable',
+    dueDate: f.today(),
+  });
+  data = f.saveDebt(data, {
+    title: 'Dois',
+    personName: 'Ana',
+    personPhone: '',
+    amount: 200,
+    direction: 'receivable',
+    dueDate: f.today(),
+  });
+  assert.equal(data.people[0].phone, '5511999999999');
+  data = f.saveDebt(
+    data,
+    { ...data.debts[0], personName: 'Ana', personPhone: '' },
+    data.debts[0].id,
+  );
+  assert.equal(data.people[0].phone, undefined);
+});
+test('meta de entrada atualiza com receitas reais e ignora outras categorias', () => {
+  let data = p.saveGoal(f.emptyData(), {
+    type: 'income',
+    categoryId: 'allowance',
+    amount: 10000,
+    month: f.today().slice(0, 7),
+  });
+  data = f.saveTransaction(data, {
+    title: 'Mesada',
+    amount: 5000,
+    type: 'income',
+    categoryId: 'allowance',
+    date: f.today(),
+  });
+  data = f.saveTransaction(data, {
+    title: 'Trabalho',
+    amount: 5000,
+    type: 'income',
+    categoryId: 'work',
+    date: f.today(),
+  });
+  assert.equal(p.goalProgress(data, data.goals[0]).percentage, 50);
+  assert.equal(p.goalProgress(data, data.goals[0]).remaining, 5000);
+});
+test('editar crédito para saldo remove o vínculo do cartão', () => {
+  let data = cardData();
+  data = f.saveTransaction(data, {
+    title: 'Lanche',
+    amount: 1000,
+    type: 'expense',
+    categoryId: 'food',
+    date: f.today(),
+    account: 'credit',
+    cardId: data.cards[0].id,
+  });
+  const t = data.transactions[0];
+  data = f.saveTransaction(data, { ...t, account: 'cash', cardId: undefined }, t.id);
+  assert.equal(data.transactions[0].cardId, undefined);
+  assert.equal(p.cardTotals(data, data.cards[0].id).outstanding, 5000);
+  assert.equal(f.totals(data).balance, 19000);
+});
+test('backup versão 2 preserva cartões, metas e ocorrências e rejeita vínculos corrompidos', () => {
+  let data = cardData();
+  data = p.saveRecurrence(data, {
+    title: 'Assinatura',
+    amount: 1000,
+    type: 'expense',
+    account: 'credit',
+    cardId: data.cards[0].id,
+    categoryId: 'subscriptions',
+    startDate: f.today(),
+    active: true,
+  });
+  data = p.resolveOccurrence(data, data.recurrences[0].id, f.today());
+  data = p.saveGoal(data, {
+    type: 'expense',
+    categoryId: 'subscriptions',
+    amount: 2000,
+    month: f.today().slice(0, 7),
+  });
+  assert.deepEqual(f.parseBackup(JSON.stringify(data)), data);
+  const corrupt = structuredClone(data);
+  corrupt.cards = [];
+  assert.throws(() => f.validateData(corrupt));
+  const missing = structuredClone(data);
+  missing.recurrenceEvents = [];
+  assert.throws(() => f.validateData(missing));
+});

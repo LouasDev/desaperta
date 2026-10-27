@@ -6,6 +6,12 @@ contraste discreto, ícones de traço e relevo leve nos controles.
 
 ## O que já funciona
 
+- Configuração inicial com saldo em conta, limite do cartão e gastos anteriores.
+- Cartões com compras no crédito, limite disponível e pagamento de fatura sem duplicar despesas.
+- Gastos e entradas recorrentes mensais, com confirmação das ocorrências realizadas.
+- Metas mensais de gastos e entradas por categoria, com progresso automático.
+- Telefone da pessoa, resumo das pendências e mensagem preenchida no WhatsApp.
+- Tema claro, escuro ou do sistema, com preferência salva no aparelho.
 - Início com saldo registrado, entradas, saídas e valores pendentes.
 - Cadastro, edição e exclusão de receitas e despesas, com categorias.
 - Histórico com busca, filtro de tipo e período.
@@ -22,10 +28,17 @@ contraste discreto, ícones de traço e relevo leve nos controles.
 1. Abra `iniciar-web.cmd` para usar no navegador.
 2. Para desenvolver, abra esta pasta no VS Code. O terminal desta pasta já tem
    Node e npm configurados. Você também pode abrir `terminal.cmd`.
-3. Adicione uma entrada chamada **Saldo inicial** com o dinheiro que você já tem.
+3. Preencha a **Configuração inicial** com o saldo que você já tem e, se usar crédito,
+   o limite total e os gastos anteriores ainda não pagos. Se já registrou o saldo
+   inicial como uma entrada, use zero para não duplicar.
 4. Registre receitas, despesas e compromissos. Em cada pendência, registre os
    pagamentos/recebimentos que realmente aconteceram.
-5. Em **Seu espaço**, exporte backups regularmente para um local privado.
+5. Em **Ajustes**, acesse cartões, metas, recorrências, aparência e backups.
+
+Veja [as instruções da versão 1.1](docs/VERSAO-1.1.md) para entender compras no crédito,
+pagamento de fatura, metas e previsões recorrentes. O saldo só muda com operações
+confirmadas; o app não realiza pagamentos bancários. A mensagem do WhatsApp abre
+preenchida para você revisar e enviar.
 
 Uma dívida a receber não entra no saldo antes de ser recebida. Ao registrar uma
 baixa, o app cria sua movimentação automaticamente; não registre o mesmo valor
@@ -84,6 +97,8 @@ Não limpe os dados para resolver um erro sem antes guardar um backup.
 Desenvolvido a partir do template exigido pelo professor:
 https://github.com/isaalexandre10/projetoFinal
 
-O histórico original foi preservado. O repositório da dupla no GitHub, a documentação
-acadêmica completa e a apresentação ainda são etapas separadas. Esta versão não
+O histórico original foi preservado. Repositório do projeto:
+https://github.com/LouasDev/desaperta
+
+A documentação acadêmica completa e a apresentação ainda são etapas separadas. Esta versão não
 faz integração bancária ou pagamentos reais: ela registra as operações informadas.

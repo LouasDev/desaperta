@@ -3,7 +3,7 @@ import { ActivityIndicator, AppState, ScrollView, Text, View } from 'react-nativ
 import { FinanceData } from '../domain/finance';
 import { repository } from '../storage/repository';
 import { Button } from '../components/ui';
-import { colors, styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 
 interface FinanceContextValue {
   data: FinanceData;
@@ -15,6 +15,7 @@ interface FinanceContextValue {
 }
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
+  const { colors, styles, clay } = useTheme();
   const [data, setData] = useState<FinanceData | null>(null);
   const [error, setError] = useState('');
   const [raw, setRaw] = useState('');

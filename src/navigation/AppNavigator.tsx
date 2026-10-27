@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,9 +11,18 @@ import DebtsScreen from '../screens/DebtsScreen';
 import DebtFormScreen from '../screens/DebtFormScreen';
 import DebtDetailScreen from '../screens/DebtDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import { colors } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 import { RootParams, TabParams } from './types';
 import { Icon, IconName } from '../components/Icon';
+import { useFinance } from '../state/FinanceContext';
+import OnboardingScreen from '../screens/OnboardingScreen';
+import CardsScreen from '../screens/CardsScreen';
+import CardFormScreen from '../screens/CardFormScreen';
+import CardDetailScreen from '../screens/CardDetailScreen';
+import GoalsScreen from '../screens/GoalsScreen';
+import GoalFormScreen from '../screens/GoalFormScreen';
+import RecurrencesScreen from '../screens/RecurrencesScreen';
+import RecurrenceFormScreen from '../screens/RecurrenceFormScreen';
 const Stack = createNativeStackNavigator<RootParams>();
 const Tabs = createBottomTabNavigator<TabParams>();
 const tabInfo: Record<string, { label: string; icon: IconName }> = {
@@ -23,6 +32,7 @@ const tabInfo: Record<string, { label: string; icon: IconName }> = {
   Settings: { label: 'Ajustes', icon: 'settings' },
 };
 function TabBar({ state, navigation }: BottomTabBarProps) {
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -82,6 +92,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 function MainTabs() {
+  const { colors, dark } = useTheme();
   return (
     <Tabs.Navigator
       tabBar={(props) => <TabBar {...props} />}
@@ -95,8 +106,23 @@ function MainTabs() {
   );
 }
 export default function AppNavigator() {
+  const { colors, dark } = useTheme();
+  const { data } = useFinance();
+  if (!data.settings.completed) return <OnboardingScreen />;
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      theme={{
+        ...(dark ? DarkTheme : DefaultTheme),
+        colors: {
+          ...(dark ? DarkTheme.colors : DefaultTheme.colors),
+          background: colors.background,
+          card: colors.paper,
+          text: colors.ink,
+          border: colors.line,
+          primary: colors.accent,
+        },
+      }}
+    >
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -108,6 +134,13 @@ export default function AppNavigator() {
         <Stack.Screen name="TransactionForm" component={TransactionFormScreen} />
         <Stack.Screen name="DebtForm" component={DebtFormScreen} />
         <Stack.Screen name="DebtDetail" component={DebtDetailScreen} />
+        <Stack.Screen name="Cards" component={CardsScreen} />
+        <Stack.Screen name="CardForm" component={CardFormScreen} />
+        <Stack.Screen name="CardDetail" component={CardDetailScreen} />
+        <Stack.Screen name="Goals" component={GoalsScreen} />
+        <Stack.Screen name="GoalForm" component={GoalFormScreen} />
+        <Stack.Screen name="Recurrences" component={RecurrencesScreen} />
+        <Stack.Screen name="RecurrenceForm" component={RecurrenceFormScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

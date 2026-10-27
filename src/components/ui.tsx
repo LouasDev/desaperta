@@ -1,3 +1,4 @@
+import type { Palette } from '../styles/theme';
 import React, { createContext, useContext, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 
 export function Button({
   label,
@@ -29,6 +30,8 @@ export function Button({
   disabled?: boolean;
   compact?: boolean;
 }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return (
     <Pressable
       accessibilityRole="button"
@@ -60,12 +63,14 @@ export function Field({
   hint,
   ...props
 }: TextInputProps & { label: string; hint?: string }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return (
     <View style={{ gap: 7 }}>
       <Text style={ui.label}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
-        placeholderTextColor="#7B8980"
+        placeholderTextColor={colors.placeholder}
         maxLength={100}
         {...props}
         style={[
@@ -87,6 +92,8 @@ export function Chips<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return (
     <View style={styles.wrap}>
       {options.map((option) => (
@@ -106,6 +113,8 @@ export function Chips<T extends string>({
   );
 }
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return <View style={[styles.card, style]}>{children}</View>;
 }
 export function Page({
@@ -121,6 +130,8 @@ export function Page({
   back?: () => void;
   action?: React.ReactNode;
 }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -164,6 +175,8 @@ export function Empty({
   body: string;
   action?: React.ReactNode;
 }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return (
     <View style={{ gap: 9, paddingVertical: 24, borderTopWidth: 1, borderTopColor: colors.line }}>
       <Text style={styles.subtitle}>{title}</Text>
@@ -173,6 +186,8 @@ export function Empty({
   );
 }
 export function ErrorText({ message }: { message: string }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return message ? (
     <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
       {message}
@@ -180,6 +195,8 @@ export function ErrorText({ message }: { message: string }) {
   ) : null;
 }
 export function Busy({ visible }: { visible: boolean }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   return visible ? <ActivityIndicator color={colors.ink} /> : null;
 }
 
@@ -195,6 +212,8 @@ interface Feedback {
 }
 const FeedbackContext = createContext<Feedback>({ notify: () => {}, confirm: async () => false });
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
+  const { colors, styles } = useTheme();
+  const ui = makeUIStyles(colors);
   const [toast, setToast] = useState('');
   const [confirmation, setConfirmation] = useState<ConfirmOptions | null>(null);
   const resolveRef = useRef<((result: boolean) => void) | null>(null);
@@ -227,7 +246,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         >
           <Text
             accessibilityLiveRegion="polite"
-            style={{ color: '#FFFFFF', fontWeight: '600', textAlign: 'center' }}
+            style={{ color: colors.onAccent, fontWeight: '600', textAlign: 'center' }}
           >
             {toast}
           </Text>
@@ -258,57 +277,58 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
 export const useFeedback = () => useContext(FeedbackContext);
 export const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.';
-const ui = StyleSheet.create({
-  button: {
-    minHeight: 48,
-    paddingHorizontal: 22,
-    paddingVertical: 15,
-    borderRadius: 10,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line },
-  danger: { backgroundColor: colors.softRed, borderWidth: 1, borderColor: '#F0C7BB' },
-  buttonText: { color: '#FFFFFF', fontWeight: '500', fontSize: 14 },
-  label: { fontSize: 13, color: colors.ink, fontWeight: '500' },
-  input: {
-    minHeight: 52,
-    padding: 15,
-    borderRadius: 9,
-    borderColor: '#D9DDD5',
-    borderWidth: 1,
-    color: colors.ink,
-    backgroundColor: '#F5F6F2',
-    fontSize: 16,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#FFFFFF',
-  },
-  chipActive: { backgroundColor: colors.mint, borderColor: '#B7C2B0' },
-  chipText: { color: colors.muted, fontSize: 13, fontWeight: '500' },
-  toast: {
-    position: 'absolute',
-    bottom: 100,
-    left: 24,
-    right: 24,
-    maxWidth: 600,
-    alignSelf: 'center',
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: colors.ink,
-    zIndex: 20,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(20,40,30,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-});
+const makeUIStyles = (colors: Palette) =>
+  StyleSheet.create({
+    button: {
+      minHeight: 48,
+      paddingHorizontal: 22,
+      paddingVertical: 15,
+      borderRadius: 10,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    secondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line },
+    danger: { backgroundColor: colors.softRed, borderWidth: 1, borderColor: `${colors.red}55` },
+    buttonText: { color: colors.onAccent, fontWeight: '500', fontSize: 14 },
+    label: { fontSize: 13, color: colors.ink, fontWeight: '500' },
+    input: {
+      minHeight: 52,
+      padding: 15,
+      borderRadius: 9,
+      borderColor: colors.line,
+      borderWidth: 1,
+      color: colors.ink,
+      backgroundColor: colors.input,
+      fontSize: 16,
+    },
+    chip: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.line,
+      backgroundColor: colors.paper,
+    },
+    chipActive: { backgroundColor: colors.mint, borderColor: colors.selectionBorder },
+    chipText: { color: colors.muted, fontSize: 13, fontWeight: '500' },
+    toast: {
+      position: 'absolute',
+      bottom: 100,
+      left: 24,
+      right: 24,
+      maxWidth: 600,
+      alignSelf: 'center',
+      padding: 16,
+      borderRadius: 18,
+      backgroundColor: colors.accent,
+      zIndex: 20,
+    },
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(20,40,30,0.4)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+  });

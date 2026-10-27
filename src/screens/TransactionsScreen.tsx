@@ -7,8 +7,9 @@ import { TransactionRow } from '../components/FinanceRows';
 import { Flow, money, today } from '../domain/finance';
 import { RootParams } from '../navigation/types';
 import { useFinance } from '../state/FinanceContext';
-import { styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 export default function TransactionsScreen() {
+  const { colors, styles, clay } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { data } = useFinance();
   const [filter, setFilter] = useState<'all' | Flow>('all');
@@ -25,7 +26,10 @@ export default function TransactionsScreen() {
           .includes(search.toLocaleLowerCase('pt-BR')),
     )
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  const resultTotal = items.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+  const resultTotal = items.reduce(
+    (s, t) => s + (t.account === 'credit' ? 0 : t.type === 'income' ? t.amount : -t.amount),
+    0,
+  );
   return (
     <Page title="Extrato">
       <Button label="+ Novo lançamento" onPress={() => navigation.navigate('TransactionForm')} />
@@ -63,7 +67,7 @@ export default function TransactionsScreen() {
       />
       <View style={styles.between}>
         <Text style={styles.small}>{items.length} registro(s) encontrado(s)</Text>
-        <Text style={styles.small}>Resultado: {money(resultTotal)}</Text>
+        <Text style={styles.small}>No saldo: {money(resultTotal)}</Text>
       </View>
       {items.length ? (
         <Card style={{ gap: 0, paddingVertical: 4 }}>

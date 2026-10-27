@@ -1,6 +1,7 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 
 const paths = {
   home: 'M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
@@ -17,24 +18,29 @@ export type IconName = keyof typeof paths;
 export function Icon({
   name,
   size = 22,
-  color = colors.ink,
+  color,
 }: {
   name: IconName;
   size?: number;
   color?: string;
 }) {
+  const { colors } = useTheme();
   return (
     <Svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...(Platform.OS === 'web'
+        ? { 'aria-hidden': true }
+        : {
+            accessibilityElementsHidden: true,
+            importantForAccessibility: 'no-hide-descendants' as const,
+          })}
     >
       <Path
         d={paths[name]}
-        stroke={color}
+        stroke={color ?? colors.ink}
         strokeWidth={1.6}
         strokeLinecap="round"
         strokeLinejoin="round"

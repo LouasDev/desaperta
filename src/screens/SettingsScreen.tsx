@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text } from 'react-native';
-import { Button, Card, ErrorText, Field, messageOf, Page, useFeedback } from '../components/ui';
+import {
+  Button,
+  Card,
+  Chips,
+  ErrorText,
+  Field,
+  messageOf,
+  Page,
+  useFeedback,
+} from '../components/ui';
 import { parseBackup } from '../domain/finance';
 import { exportBackup, importBackup } from '../services/backup';
 import { useFinance } from '../state/FinanceContext';
 import { repository } from '../storage/repository';
-import { styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootParams } from '../navigation/types';
+import { inputMoney } from '../domain/finance';
+import { moneyOrZero } from '../domain/formValues';
 export default function SettingsScreen() {
+  const { colors, styles, clay } = useTheme();
+  const { preference, setPreference } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { data, commit, saving } = useFinance();
   const { notify, confirm } = useFeedback();
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [showText, setShowText] = useState(false);
   const [paste, setPaste] = useState('');
+  const [opening, setOpening] = useState(inputMoney(data.settings.openingBalance));
+  useEffect(
+    () => setOpening(inputMoney(data.settings.openingBalance)),
+    [data.settings.openingBalance],
+  );
   const busy = saving || working;
   const restore = async (raw: string) => {
     const restored = parseBackup(raw);
@@ -41,6 +63,74 @@ export default function SettingsScreen() {
   };
   return (
     <Page title="Ajustes">
+      <Card>
+        <Text style={styles.subtitle}>Controle financeiro</Text>
+        <Button
+          label="Cartões de crédito"
+          variant="secondary"
+          onPress={() => navigation.navigate('Cards')}
+        />
+        <Button
+          label="Metas de gastos e entradas"
+          variant="secondary"
+          onPress={() => navigation.navigate('Goals')}
+        />
+        <Button
+          label="Gastos e entradas recorrentes"
+          variant="secondary"
+          onPress={() => navigation.navigate('Recurrences')}
+        />
+      </Card>
+      <Card>
+        <Text style={styles.subtitle}>Aparência</Text>
+        <Chips
+          value={preference}
+          onChange={(value) => run(() => setPreference(value))}
+          options={[
+            { value: 'system', label: 'Sistema' },
+            { value: 'light', label: 'Claro' },
+            { value: 'dark', label: 'Escuro' },
+          ]}
+        />
+      </Card>
+      <Card>
+        <Text style={styles.subtitle}>Saldo inicial</Text>
+        <Field
+          label="Saldo anterior ao primeiro lançamento (R$)"
+          value={opening}
+          onChangeText={setOpening}
+          keyboardType="decimal-pad"
+          maxLength={20}
+        />
+        <Text style={styles.small}>
+          Corrige apenas o ponto de partida. Não inclua receitas ou despesas já registradas no
+          histórico.
+        </Text>
+        <Button
+          label="Atualizar saldo inicial"
+          variant="secondary"
+          disabled={busy}
+          onPress={() =>
+            run(async () => {
+              const cents = moneyOrZero(opening);
+              if (
+                !(await confirm({
+                  title: 'Atualizar saldo inicial?',
+                  message:
+                    'Seu saldo atual será recalculado usando este valor mais o histórico de movimentações.',
+                  accept: 'Atualizar saldo',
+                }))
+              )
+                return;
+              await commit((current) => ({
+                ...current,
+                settings: { ...current.settings, openingBalance: cents },
+              }));
+              notify('Saldo inicial atualizado.');
+            })
+          }
+        />
+      </Card>
       <Card>
         <Text style={styles.eyebrow}>Só no seu aparelho</Text>
         <Text style={styles.subtitle}>Armazenamento local</Text>
@@ -142,8 +232,9 @@ export default function SettingsScreen() {
       <Card>
         <Text style={styles.subtitle}>Como o saldo funciona</Text>
         <Text style={styles.body}>
-          O saldo é a soma das entradas menos as saídas registradas. Para começar com dinheiro que
-          você já tem, adicione uma entrada chamada “Saldo inicial”.
+          O saldo em conta é o saldo inicial mais as entradas, menos os pagamentos feitos com esse
+          saldo. Compras no crédito só saem da conta quando a fatura é paga; para as metas e
+          categorias, contam na data da compra.
         </Text>
         <Text style={styles.body}>
           “Eu devo” e “Me devem” são compromissos. Eles só afetam o saldo quando você registra um
@@ -154,7 +245,7 @@ export default function SettingsScreen() {
           correto. Evite lançar a mesma operação duas vezes.
         </Text>
       </Card>
-      <Text style={[styles.small, { textAlign: 'center' }]}>Desaperta · versão 1.0.0</Text>
+      <Text style={[styles.small, { textAlign: 'center' }]}>Desaperta · versão 1.1.0</Text>
     </Page>
   );
 }

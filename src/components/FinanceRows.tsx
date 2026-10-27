@@ -9,7 +9,7 @@ import {
   remaining,
   Transaction,
 } from '../domain/finance';
-import { colors, styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
 import { Icon } from './Icon';
 export function TransactionRow({
   item,
@@ -20,6 +20,7 @@ export function TransactionRow({
   category: string;
   onPress: () => void;
 }) {
+  const { colors, styles } = useTheme();
   const incoming = item.type === 'income';
   return (
     <Pressable
@@ -36,7 +37,7 @@ export function TransactionRow({
             borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#EBEDE7',
+            backgroundColor: colors.iconBackground,
           }}
         >
           <Icon
@@ -50,6 +51,7 @@ export function TransactionRow({
           <Text style={styles.small}>
             {category} · {displayDate(item.date)}
             {item.paymentId ? ' · Vinculado' : ''}
+            {item.cardPaymentFor ? ' · Fatura' : item.account === 'credit' ? ' · Crédito' : ''}
           </Text>
         </View>
       </View>
@@ -77,6 +79,7 @@ export function DebtCard({
   data: FinanceData;
   onPress: () => void;
 }) {
+  const { colors, styles } = useTheme();
   const rest = remaining(data, debt),
     status = debtStatus(data, debt),
     name = data.people.find((p) => p.id === debt.personId)?.name;

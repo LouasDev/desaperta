@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Card, ErrorText, Field, messageOf, Page, useFeedback } from '../components/ui';
 import {
@@ -18,11 +18,13 @@ import {
 } from '../domain/finance';
 import { RootParams } from '../navigation/types';
 import { useFinance } from '../state/FinanceContext';
-import { colors, styles } from '../styles/theme';
+import { useTheme } from '../state/ThemeContext';
+import { personSummary, whatsappURL } from '../domain/planning';
 export default function DebtDetailScreen({
   route,
   navigation,
 }: NativeStackScreenProps<RootParams, 'DebtDetail'>) {
+  const { colors, styles, clay } = useTheme();
   const { data, commit, saving } = useFinance();
   const { notify, confirm } = useFeedback();
   const debt = data.debts.find((d) => d.id === route.params.id);
@@ -30,6 +32,7 @@ export default function DebtDetailScreen({
   const [date, setDate] = useState(displayDate(today()));
   const [error, setError] = useState('');
   const [limit, setLimit] = useState(20);
+  const [showSummary, setShowSummary] = useState(false);
   if (!debt)
     return (
       <Page title="Registro não encontrado" back={() => navigation.goBack()}>
@@ -42,6 +45,17 @@ export default function DebtDetailScreen({
   const payments = data.payments
     .filter((p) => p.debtId === debt.id)
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const person = data.people.find((p) => p.id === debt.personId)!;
+  const summary = personSummary(data, person.id);
+  const openWhatsApp = async () => {
+    setError('');
+    try {
+      if (!person.phone) throw new Error('Edite a pendência e cadastre o WhatsApp da pessoa.');
+      await Linking.openURL(whatsappURL(person.phone, summary));
+    } catch (e) {
+      setError(messageOf(e));
+    }
+  };
   const pay = async () => {
     setError('');
     try {
@@ -159,6 +173,30 @@ export default function DebtDetailScreen({
         disabled={saving}
       />
       <ErrorText message={error} />
+      <Card>
+        <Text style={styles.subtitle}>Resumo para {person.name}</Text>
+        <Text style={styles.body}>
+          Inclui todas as pendências em aberto com esta pessoa, descontando os pagamentos já
+          registrados.
+        </Text>
+        <Button
+          label={showSummary ? 'Ocultar resumo' : 'Revisar resumo da pessoa'}
+          variant="secondary"
+          onPress={() => setShowSummary((value) => !value)}
+        />
+        {showSummary && (
+          <Text selectable style={styles.body}>
+            {summary}
+          </Text>
+        )}
+        <Button label="Abrir mensagem no WhatsApp" onPress={openWhatsApp} />
+        <Text style={styles.small}>
+          {person.phone
+            ? `Destino: +${person.phone}. `
+            : 'Cadastre o telefone em Editar pendência. '}
+          O texto abre na conversa; você revisa e envia no WhatsApp.
+        </Text>
+      </Card>
       {rest > 0 && (
         <Card>
           <Text style={styles.subtitle}>
