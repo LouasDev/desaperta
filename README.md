@@ -27,6 +27,8 @@ contraste discreto, ícones de traço e relevo leve nos controles.
 
 ## Começar a usar
 
+Para instalar no celular Android sem Expo Go, consulte [instalação do APK e compilação local](docs/ANDROID.md).
+
 1. Abra `iniciar-web.cmd` para usar no navegador.
 2. Para desenvolver, abra esta pasta no VS Code. O terminal desta pasta já tem
    Node e npm configurados. Você também pode abrir `terminal.cmd`.
