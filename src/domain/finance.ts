@@ -1,8 +1,10 @@
+import type { CreditCard, Goal, Recurrence, RecurrenceEvent, Settings } from './models';
 export type Flow = 'income' | 'expense';
 export type Direction = 'payable' | 'receivable';
 export interface Person {
   id: string;
   name: string;
+  phone?: string;
 }
 export interface Category {
   id: string;
@@ -17,6 +19,11 @@ export interface Transaction {
   date: string;
   categoryId: string;
   paymentId?: string;
+  account?: 'cash' | 'credit';
+  cardId?: string;
+  cardPaymentFor?: string;
+  recurrenceId?: string;
+  occurrence?: string;
 }
 export interface Debt {
   id: string;
@@ -35,7 +42,12 @@ export interface Payment {
   transactionId: string;
 }
 export interface FinanceData {
-  version: 1;
+  version: 2;
+  settings: Settings;
+  cards: CreditCard[];
+  goals: Goal[];
+  recurrences: Recurrence[];
+  recurrenceEvents: RecurrenceEvent[];
   people: Person[];
   categories: Category[];
   transactions: Transaction[];
@@ -98,7 +110,12 @@ export function text(value: string, label: string): string {
 }
 export function emptyData(): FinanceData {
   return {
-    version: 1,
+    version: 2,
+    settings: { completed: false, openingBalance: 0 },
+    cards: [],
+    goals: [],
+    recurrences: [],
+    recurrenceEvents: [],
     people: [],
     transactions: [],
     debts: [],
@@ -112,6 +129,7 @@ export function emptyData(): FinanceData {
       { id: 'transport', name: 'Transporte', type: 'expense' },
       { id: 'leisure', name: 'Lazer', type: 'expense' },
       { id: 'study', name: 'Estudos', type: 'expense' },
+      { id: 'subscriptions', name: 'Assinaturas', type: 'expense' },
       { id: 'payment-in', name: 'Recebimento de dívida', type: 'income' },
       { id: 'payment-out', name: 'Pagamento de dívida', type: 'expense' },
     ],
@@ -129,12 +147,19 @@ export function totals(data: FinanceData) {
     .filter((t) => t.type === 'income')
     .reduce((s, t) => s + t.amount, 0);
   const expense = data.transactions
-    .filter((t) => t.type === 'expense')
+    .filter((t) => t.type === 'expense' && !t.cardPaymentFor)
     .reduce((s, t) => s + t.amount, 0);
   return {
     income,
     expense,
-    balance: income - expense,
+    balance:
+      data.settings.openingBalance +
+      data.transactions.reduce(
+        (sum, t) =>
+          sum +
+          ((t.account ?? 'cash') === 'cash' ? (t.type === 'income' ? t.amount : -t.amount) : 0),
+        0,
+      ),
     payable: data.debts
       .filter((d) => d.direction === 'payable')
       .reduce((s, d) => s + remaining(data, d), 0),
@@ -151,8 +176,18 @@ export function saveTransaction(
 ): FinanceData {
   const existing = data.transactions.find((t) => t.id === editId);
   ensure(!editId || existing, 'Lançamento não encontrado.');
-  ensure(!existing?.paymentId, 'Edite este registro pelo histórico da dívida.');
-  const transaction = { ...input, title: text(input.title, 'Descrição'), id: editId ?? id() };
+  ensure(
+    !existing?.paymentId && !existing?.cardPaymentFor,
+    'Desfaça este registro na tela de origem.',
+  );
+  const transaction = {
+    ...existing,
+    ...input,
+    account: input.account ?? 'cash',
+    cardId: input.account === 'credit' ? input.cardId : undefined,
+    title: text(input.title, 'Descrição'),
+    id: editId ?? id(),
+  };
   const next = {
     ...data,
     transactions: [...data.transactions.filter((t) => t.id !== editId), transaction],
@@ -162,10 +197,19 @@ export function saveTransaction(
 export function deleteTransaction(data: FinanceData, transactionId: string): FinanceData {
   const existing = data.transactions.find((t) => t.id === transactionId);
   ensure(existing && !existing.paymentId, 'Remova pagamentos pelo histórico da dívida.');
-  return { ...data, transactions: data.transactions.filter((t) => t.id !== transactionId) };
+  return validateData({
+    ...data,
+    transactions: data.transactions.filter((t) => t.id !== transactionId),
+    recurrenceEvents: data.recurrenceEvents.map((e) =>
+      e.transactionId === transactionId
+        ? { ...e, status: 'skipped' as const, transactionId: undefined }
+        : e,
+    ),
+  });
 }
 export type DebtInput = Pick<Debt, 'title' | 'amount' | 'dueDate' | 'direction'> & {
   personName: string;
+  personPhone?: string;
 };
 export function saveDebt(data: FinanceData, input: DebtInput, editId?: string): FinanceData {
   const existing = data.debts.find((d) => d.id === editId);
@@ -179,9 +223,15 @@ export function saveDebt(data: FinanceData, input: DebtInput, editId?: string): 
     'Não é possível mudar o tipo após registrar pagamentos.',
   );
   const name = text(input.personName, 'Pessoa');
-  const person = data.people.find(
+  const foundPerson = data.people.find(
     (p) => p.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'),
   ) ?? { id: id(), name };
+  const person: Person = {
+    ...foundPerson,
+    ...(input.personPhone !== undefined
+      ? { phone: normalizePhone(input.personPhone) || undefined }
+      : {}),
+  };
   const debt: Debt = {
     id: editId ?? id(),
     personId: person.id,
@@ -193,7 +243,7 @@ export function saveDebt(data: FinanceData, input: DebtInput, editId?: string): 
   };
   return validateData({
     ...data,
-    people: data.people.some((p) => p.id === person.id) ? data.people : [...data.people, person],
+    people: [...data.people.filter((p) => p.id !== person.id), person],
     debts: [...data.debts.filter((d) => d.id !== editId), debt],
   });
 }
@@ -250,12 +300,42 @@ export function deleteDebt(data: FinanceData, debtId: string): FinanceData {
 
 // All writes and imports pass through the same invariants, including references.
 export function validateData(value: unknown): FinanceData {
-  const data = value as FinanceData;
+  const raw = value as FinanceData;
   ensure(
-    data && typeof data === 'object' && data.version === 1,
+    raw &&
+      typeof raw === 'object' &&
+      (raw.version === 2 || (raw as { version: number }).version === 1),
     'Formato ou versão de backup incompatível.',
   );
-  for (const key of ['people', 'categories', 'transactions', 'debts', 'payments'] as const) {
+  const legacy = (raw as { version: number }).version === 1;
+  const data: FinanceData = legacy
+    ? {
+        ...raw,
+        version: 2,
+        settings: { completed: false, openingBalance: 0 },
+        cards: [],
+        goals: [],
+        recurrences: [],
+        recurrenceEvents: [],
+        categories: Array.isArray(raw.categories)
+          ? [
+              ...raw.categories.filter((c) => c?.id !== 'subscriptions'),
+              { id: 'subscriptions', name: 'Assinaturas', type: 'expense' },
+            ]
+          : raw.categories,
+      }
+    : raw;
+  for (const key of [
+    'people',
+    'categories',
+    'transactions',
+    'debts',
+    'payments',
+    'cards',
+    'goals',
+    'recurrences',
+    'recurrenceEvents',
+  ] as const) {
     ensure(
       Array.isArray(data[key]) && data[key].length <= 10000,
       'Dados inválidos ou limite de 10 mil registros por tipo excedido.',
@@ -277,7 +357,13 @@ export function validateData(value: unknown): FinanceData {
   const amount = (n: unknown) =>
     Number.isSafeInteger(n) && Number(n) > 0 && Number(n) <= MAX_AMOUNT;
   const flow = (s: unknown) => s === 'income' || s === 'expense';
-  for (const p of data.people) ensure(label(p.name), 'Nome de pessoa inválido.');
+  for (const p of data.people) {
+    ensure(label(p.name), 'Nome de pessoa inválido.');
+    ensure(
+      p.phone === undefined || (typeof p.phone === 'string' && /^\d{10,15}$/.test(p.phone)),
+      'Telefone inválido.',
+    );
+  }
   for (const c of data.categories) ensure(label(c.name) && flow(c.type), 'Categoria inválida.');
   for (const base of emptyData().categories)
     ensure(
@@ -329,10 +415,42 @@ export function validateData(value: unknown): FinanceData {
       'Pagamento inconsistente ou sem dívida correspondente.',
     );
   }
+  validateExtensions(data);
   // Only known fields are kept, preventing imported metadata from being persisted.
   return {
-    version: 1,
-    people: data.people.map(({ id, name }) => ({ id, name })),
+    version: 2,
+    settings: { completed: data.settings.completed, openingBalance: data.settings.openingBalance },
+    cards: data.cards.map(({ id, name, limit, openingUsed }) => ({ id, name, limit, openingUsed })),
+    goals: data.goals.map(({ id, type, categoryId, amount, month }) => ({
+      id,
+      type,
+      categoryId,
+      amount,
+      month,
+    })),
+    recurrences: data.recurrences.map(
+      ({ id, title, amount, type, categoryId, account, cardId, startDate, active }) => ({
+        id,
+        title,
+        amount,
+        type,
+        categoryId,
+        account,
+        ...(cardId ? { cardId } : {}),
+        startDate,
+        active,
+      }),
+    ),
+    recurrenceEvents: data.recurrenceEvents.map(
+      ({ id, recurrenceId, date, status, transactionId }) => ({
+        id,
+        recurrenceId,
+        date,
+        status,
+        ...(transactionId ? { transactionId } : {}),
+      }),
+    ),
+    people: data.people.map(({ id, name, phone }) => ({ id, name, ...(phone ? { phone } : {}) })),
     categories: data.categories.map(({ id, name, type }) => ({ id, name, type })),
     debts: data.debts.map(({ id, personId, title, amount, direction, dueDate, createdAt }) => ({
       id,
@@ -344,7 +462,20 @@ export function validateData(value: unknown): FinanceData {
       createdAt,
     })),
     transactions: data.transactions.map(
-      ({ id, title, amount, type, date, categoryId, paymentId }) => ({
+      ({
+        id,
+        title,
+        amount,
+        type,
+        date,
+        categoryId,
+        paymentId,
+        account,
+        cardId,
+        cardPaymentFor,
+        recurrenceId,
+        occurrence,
+      }) => ({
         id,
         title,
         amount,
@@ -352,6 +483,10 @@ export function validateData(value: unknown): FinanceData {
         date,
         categoryId,
         ...(paymentId ? { paymentId } : {}),
+        account: account ?? 'cash',
+        ...(cardId ? { cardId } : {}),
+        ...(cardPaymentFor ? { cardPaymentFor } : {}),
+        ...(recurrenceId ? { recurrenceId, occurrence } : {}),
       }),
     ),
     payments: data.payments.map(({ id, debtId, amount, date, transactionId }) => ({
@@ -372,4 +507,129 @@ export function parseBackup(raw: string): FinanceData {
     throw new Error('O texto não é um backup JSON válido.');
   }
   return validateData(value);
+}
+
+export function normalizePhone(value: string): string {
+  if (!value.trim()) return '';
+  const digits = value.replace(/[^\d]/g, '');
+  const normalized =
+    /^\d{10,11}$/.test(digits) && !value.trim().startsWith('+') ? `55${digits}` : digits;
+  ensure(
+    /^\d{10,15}$/.test(normalized) && !normalized.startsWith('0'),
+    'Informe DDD e número, ou o número internacional com + e código do país.',
+  );
+  return normalized;
+}
+function validateExtensions(data: FinanceData) {
+  const amount = (n: number, zero = false) =>
+    Number.isSafeInteger(n) && n >= (zero ? 0 : 1) && n <= MAX_AMOUNT;
+  const month = (value: string) =>
+    typeof value === 'string' && /^\d{4}-\d{2}$/.test(value) && validDate(`${value}-01`);
+  ensure(
+    data.settings &&
+      typeof data.settings.completed === 'boolean' &&
+      Number.isSafeInteger(data.settings.openingBalance) &&
+      Math.abs(data.settings.openingBalance) <= MAX_AMOUNT,
+    'Configuração inicial inválida.',
+  );
+  const accountValid = (item: { account?: string; cardId?: string; type: string }) =>
+    ((item.account === undefined || item.account === 'cash') && item.cardId === undefined) ||
+    (item.account === 'credit' &&
+      item.type === 'expense' &&
+      data.cards.some((c) => c.id === item.cardId));
+  for (const card of data.cards) {
+    ensure(
+      typeof card.name === 'string' &&
+        card.name.trim().length > 0 &&
+        card.name.length <= 100 &&
+        amount(card.limit) &&
+        amount(card.openingUsed, true),
+      'Cartão inválido.',
+    );
+    const outstanding =
+      card.openingUsed +
+      data.transactions.reduce(
+        (sum, t) =>
+          sum +
+          (t.account === 'credit' && t.cardId === card.id
+            ? t.amount
+            : t.cardPaymentFor === card.id
+              ? -t.amount
+              : 0),
+        0,
+      );
+    ensure(outstanding >= 0, 'O pagamento ultrapassa os gastos pendentes deste cartão.');
+  }
+  for (const t of data.transactions) {
+    ensure(accountValid(t), 'Selecione um cartão válido para este gasto.');
+    ensure(
+      !t.cardPaymentFor ||
+        (t.account !== 'credit' &&
+          t.type === 'expense' &&
+          !t.paymentId &&
+          !t.recurrenceId &&
+          data.cards.some((c) => c.id === t.cardPaymentFor)),
+      'Pagamento de cartão inválido.',
+    );
+    ensure(
+      !t.paymentId || (t.account !== 'credit' && !t.recurrenceId),
+      'Baixas de dívidas devem movimentar o saldo em conta.',
+    );
+    ensure(
+      !t.recurrenceId ||
+        data.recurrenceEvents.some(
+          (e) =>
+            e.recurrenceId === t.recurrenceId &&
+            e.date === t.occurrence &&
+            e.transactionId === t.id &&
+            e.status === 'posted',
+        ),
+      'Recorrência sem ocorrência correspondente.',
+    );
+  }
+  const goalKeys = new Set<string>();
+  for (const g of data.goals) {
+    const key = `${g.type}:${g.categoryId}:${g.month}`;
+    ensure(
+      amount(g.amount) &&
+        month(g.month) &&
+        data.categories.some((c) => c.id === g.categoryId && c.type === g.type) &&
+        !goalKeys.has(key),
+      'Meta inválida ou repetida para a mesma categoria e mês.',
+    );
+    goalKeys.add(key);
+  }
+  for (const r of data.recurrences)
+    ensure(
+      typeof r.title === 'string' &&
+        r.title.trim().length > 0 &&
+        r.title.length <= 100 &&
+        amount(r.amount) &&
+        data.categories.some((c) => c.id === r.categoryId && c.type === r.type) &&
+        accountValid(r) &&
+        validDate(r.startDate) &&
+        typeof r.active === 'boolean',
+      'Recorrência inválida.',
+    );
+  for (const e of data.recurrenceEvents) {
+    ensure(
+      data.recurrences.some((r) => r.id === e.recurrenceId) &&
+        validDate(e.date) &&
+        e.date <= today() &&
+        e.id === `${e.recurrenceId}:${e.date.slice(0, 7)}` &&
+        (e.status === 'skipped' || e.status === 'posted'),
+      'Ocorrência recorrente inválida.',
+    );
+    ensure(
+      e.status === 'skipped'
+        ? !e.transactionId
+        : data.transactions.some(
+            (t) =>
+              t.id === e.transactionId &&
+              t.recurrenceId === e.recurrenceId &&
+              t.occurrence === e.date,
+          ),
+      'Ocorrência sem lançamento correspondente.',
+    );
+  }
 }
