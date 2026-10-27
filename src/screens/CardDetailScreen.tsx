@@ -1,3 +1,5 @@
+import { CreditUsage } from '../components/CreditUsage';
+import { CashAccountPicker } from '../components/CashAccountPicker';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -16,6 +18,7 @@ export default function CardDetailScreen({
   const { styles, colors } = useTheme();
   const { confirm, notify } = useFeedback();
   const card = data.cards.find((c) => c.id === route.params.id);
+  const [cashAccountId, setCashAccountId] = useState(data.cashAccounts[0].id);
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(displayDate(today()));
   const [error, setError] = useState('');
@@ -45,7 +48,7 @@ export default function CardDetailScreen({
         }))
       )
         return;
-      await commit((current) => payCard(current, card.id, cents, iso));
+      await commit((current) => payCard(current, card.id, cents, iso, cashAccountId));
       setAmount('');
       notify('Fatura paga e crédito atualizado.');
     } catch (e) {
@@ -73,16 +76,7 @@ export default function CardDetailScreen({
   return (
     <Page title={card.name} back={() => navigation.goBack()}>
       <Card>
-        <Text style={styles.body}>Crédito disponível</Text>
-        <Text style={[styles.title, { color: summary.available < 0 ? colors.red : colors.ink }]}>
-          {money(summary.available)}
-        </Text>
-        <Text style={styles.body}>
-          Limite: {money(card.limit)} · A pagar: {money(summary.outstanding)}
-        </Text>
-        {summary.available < 0 && (
-          <Text style={styles.error}>O valor pendente ultrapassa o limite cadastrado.</Text>
-        )}
+        <CreditUsage card={card} used={summary.outstanding} />
         <Button
           label="Editar cartão"
           variant="secondary"
@@ -99,6 +93,11 @@ export default function CardDetailScreen({
       {summary.outstanding > 0 && (
         <Card>
           <Text style={styles.subtitle}>Pagamento da fatura</Text>
+          <CashAccountPicker
+            label="Pagar a partir da conta"
+            value={cashAccountId}
+            onChange={setCashAccountId}
+          />
           <Field
             label="Valor pago (R$) *"
             value={amount}

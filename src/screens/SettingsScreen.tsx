@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Text } from 'react-native';
 import {
   Button,
@@ -18,8 +18,6 @@ import { useTheme } from '../state/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootParams } from '../navigation/types';
-import { inputMoney } from '../domain/finance';
-import { moneyOrZero } from '../domain/formValues';
 export default function SettingsScreen() {
   const { colors, styles, clay } = useTheme();
   const { preference, setPreference } = useTheme();
@@ -30,11 +28,6 @@ export default function SettingsScreen() {
   const [working, setWorking] = useState(false);
   const [showText, setShowText] = useState(false);
   const [paste, setPaste] = useState('');
-  const [opening, setOpening] = useState(inputMoney(data.settings.openingBalance));
-  useEffect(
-    () => setOpening(inputMoney(data.settings.openingBalance)),
-    [data.settings.openingBalance],
-  );
   const busy = saving || working;
   const restore = async (raw: string) => {
     const restored = parseBackup(raw);
@@ -66,6 +59,11 @@ export default function SettingsScreen() {
       <Card>
         <Text style={styles.subtitle}>Controle financeiro</Text>
         <Button
+          label="Contas e saldos"
+          variant="secondary"
+          onPress={() => navigation.navigate('Accounts')}
+        />
+        <Button
           label="Cartões de crédito"
           variant="secondary"
           onPress={() => navigation.navigate('Cards')}
@@ -91,44 +89,6 @@ export default function SettingsScreen() {
             { value: 'light', label: 'Claro' },
             { value: 'dark', label: 'Escuro' },
           ]}
-        />
-      </Card>
-      <Card>
-        <Text style={styles.subtitle}>Saldo inicial</Text>
-        <Field
-          label="Saldo anterior ao primeiro lançamento (R$)"
-          value={opening}
-          onChangeText={setOpening}
-          keyboardType="decimal-pad"
-          maxLength={20}
-        />
-        <Text style={styles.small}>
-          Corrige apenas o ponto de partida. Não inclua receitas ou despesas já registradas no
-          histórico.
-        </Text>
-        <Button
-          label="Atualizar saldo inicial"
-          variant="secondary"
-          disabled={busy}
-          onPress={() =>
-            run(async () => {
-              const cents = moneyOrZero(opening);
-              if (
-                !(await confirm({
-                  title: 'Atualizar saldo inicial?',
-                  message:
-                    'Seu saldo atual será recalculado usando este valor mais o histórico de movimentações.',
-                  accept: 'Atualizar saldo',
-                }))
-              )
-                return;
-              await commit((current) => ({
-                ...current,
-                settings: { ...current.settings, openingBalance: cents },
-              }));
-              notify('Saldo inicial atualizado.');
-            })
-          }
         />
       </Card>
       <Card>
@@ -232,9 +192,9 @@ export default function SettingsScreen() {
       <Card>
         <Text style={styles.subtitle}>Como o saldo funciona</Text>
         <Text style={styles.body}>
-          O saldo em conta é o saldo inicial mais as entradas, menos os pagamentos feitos com esse
-          saldo. Compras no crédito só saem da conta quando a fatura é paga; para as metas e
-          categorias, contam na data da compra.
+          O saldo total é a soma dos saldos das suas contas. Compras no crédito contam nas
+          categorias na data da compra, mas só saem da conta no pagamento da fatura. Transferências
+          entre suas contas não são receitas ou despesas.
         </Text>
         <Text style={styles.body}>
           “Eu devo” e “Me devem” são compromissos. Eles só afetam o saldo quando você registra um
@@ -245,7 +205,7 @@ export default function SettingsScreen() {
           correto. Evite lançar a mesma operação duas vezes.
         </Text>
       </Card>
-      <Text style={[styles.small, { textAlign: 'center' }]}>Desaperta · versão 1.1.0</Text>
+      <Text style={[styles.small, { textAlign: 'center' }]}>Desaperta · versão 1.2.0</Text>
     </Page>
   );
 }

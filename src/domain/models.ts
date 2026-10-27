@@ -1,6 +1,10 @@
 import type { Flow } from './finance';
 export interface Settings {
   completed: boolean;
+}
+export interface CashAccount {
+  id: string;
+  name: string;
   openingBalance: number;
 }
 export interface CreditCard {
@@ -24,6 +28,7 @@ export interface Recurrence {
   categoryId: string;
   account: 'cash' | 'credit';
   cardId?: string;
+  cashAccountId?: string;
   startDate: string;
   active: boolean;
 }

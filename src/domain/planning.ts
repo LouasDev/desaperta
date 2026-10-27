@@ -16,11 +16,15 @@ export function configure(
   data: FinanceData,
   openingBalance: number,
   card?: Omit<CreditCard, 'id'>,
+  accountName = 'Conta principal',
 ): FinanceData {
   ensure(!data.settings.completed, 'A configuração inicial já foi concluída.');
   return validateData({
     ...data,
-    settings: { completed: true, openingBalance },
+    settings: { completed: true },
+    cashAccounts: data.cashAccounts.map((a, index) =>
+      index === 0 ? { ...a, openingBalance, name: text(accountName, 'Nome da conta') } : a,
+    ),
     cards: card
       ? [...data.cards, { ...card, name: text(card.name, 'Nome do cartão'), id: id() }]
       : data.cards,
@@ -34,10 +38,11 @@ export function saveCard(
   ensure(!editId || data.cards.some((c) => c.id === editId), 'Cartão não encontrado.');
   return validateData({
     ...data,
-    cards: [
-      ...data.cards.filter((c) => c.id !== editId),
-      { ...input, id: editId ?? id(), name: text(input.name, 'Nome do cartão') },
-    ],
+    cards: editId
+      ? data.cards.map((c) =>
+          c.id === editId ? { ...input, id: editId, name: text(input.name, 'Nome do cartão') } : c,
+        )
+      : [...data.cards, { ...input, id: id(), name: text(input.name, 'Nome do cartão') }],
   });
 }
 export function cardTotals(data: FinanceData, cardId: string) {
@@ -50,13 +55,23 @@ export function cardTotals(data: FinanceData, cardId: string) {
     .filter((t) => t.cardPaymentFor === cardId)
     .reduce((s, t) => s + t.amount, 0);
   const outstanding = card.openingUsed + purchases - paid;
-  return { purchases, paid, outstanding, available: card.limit - outstanding };
+  const percentage = (outstanding / card.limit) * 100;
+  return {
+    purchases,
+    paid,
+    outstanding,
+    available: card.limit - outstanding,
+    percentage,
+    progress: Math.min(100, Math.max(0, percentage)),
+    exceeded: Math.max(0, outstanding - card.limit),
+  };
 }
 export function payCard(
   data: FinanceData,
   cardId: string,
   amount: number,
   date: string,
+  cashAccountId = data.cashAccounts[0].id,
 ): FinanceData {
   const card = data.cards.find((c) => c.id === cardId);
   ensure(
@@ -74,6 +89,7 @@ export function payCard(
         amount,
         date,
         account: 'cash',
+        cashAccountId,
         categoryId: 'expense-general',
         cardPaymentFor: cardId,
       },
@@ -104,6 +120,7 @@ export function goalProgress(data: FinanceData, goal: Goal) {
     .filter(
       (t) =>
         !t.cardPaymentFor &&
+        !t.transferId &&
         t.type === goal.type &&
         t.categoryId === goal.categoryId &&
         t.date.startsWith(goal.month),
@@ -122,7 +139,13 @@ export function saveRecurrence(data: FinanceData, input: Omit<Recurrence, 'id'>,
     ...data,
     recurrences: [
       ...data.recurrences.filter((r) => r.id !== editId),
-      { ...input, title: text(input.title, 'Descrição'), id: editId ?? id() },
+      {
+        ...input,
+        cashAccountId:
+          input.account === 'cash' ? (input.cashAccountId ?? data.cashAccounts[0].id) : undefined,
+        title: text(input.title, 'Descrição'),
+        id: editId ?? id(),
+      },
     ],
   });
 }
@@ -186,6 +209,7 @@ export function resolveOccurrence(
             categoryId: recurrence.categoryId,
             account: recurrence.account,
             ...(recurrence.cardId ? { cardId: recurrence.cardId } : {}),
+            ...(recurrence.cashAccountId ? { cashAccountId: recurrence.cashAccountId } : {}),
             recurrenceId,
             occurrence: date,
           },

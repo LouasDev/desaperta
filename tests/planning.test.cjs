@@ -133,7 +133,7 @@ test('migração v1 preserva caixa e dívidas sem reiniciar os dados', () => {
   delete old.recurrenceEvents;
   old.categories = old.categories.filter((c) => c.id !== 'subscriptions');
   const migrated = f.parseBackup(JSON.stringify(old));
-  assert.equal(migrated.version, 2);
+  assert.equal(migrated.version, 3);
   assert.equal(migrated.debts.length, 1);
   assert.equal(f.totals(migrated).receivable, 10000);
 });
@@ -229,7 +229,7 @@ test('editar crédito para saldo remove o vínculo do cartão', () => {
   assert.equal(p.cardTotals(data, data.cards[0].id).outstanding, 5000);
   assert.equal(f.totals(data).balance, 19000);
 });
-test('backup versão 2 preserva cartões, metas e ocorrências e rejeita vínculos corrompidos', () => {
+test('backup atual preserva cartões, metas e ocorrências e rejeita vínculos corrompidos', () => {
   let data = cardData();
   data = p.saveRecurrence(data, {
     title: 'Assinatura',

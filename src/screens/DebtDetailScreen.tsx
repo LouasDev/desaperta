@@ -1,3 +1,4 @@
+import { CashAccountPicker } from '../components/CashAccountPicker';
 import React, { useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -28,6 +29,7 @@ export default function DebtDetailScreen({
   const { data, commit, saving } = useFinance();
   const { notify, confirm } = useFeedback();
   const debt = data.debts.find((d) => d.id === route.params.id);
+  const [cashAccountId, setCashAccountId] = useState(data.cashAccounts[0].id);
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(displayDate(today()));
   const [error, setError] = useState('');
@@ -70,7 +72,7 @@ export default function DebtDetailScreen({
         }))
       )
         return;
-      await commit((current) => addPayment(current, debt.id, cents, iso));
+      await commit((current) => addPayment(current, debt.id, cents, iso, cashAccountId));
       setAmount('');
       notify(
         incoming ? 'Recebimento salvo e saldo atualizado.' : 'Pagamento salvo e saldo atualizado.',
@@ -203,6 +205,11 @@ export default function DebtDetailScreen({
             {incoming ? 'Registrar recebimento' : 'Registrar pagamento'}
           </Text>
           <Text style={styles.body}>Informe o valor recebido ou pago, total ou parcial.</Text>
+          <CashAccountPicker
+            label="Conta do pagamento ou recebimento"
+            value={cashAccountId}
+            onChange={setCashAccountId}
+          />
           <Field
             label={incoming ? 'Valor recebido (R$) *' : 'Valor pago (R$) *'}
             placeholder="0,00"

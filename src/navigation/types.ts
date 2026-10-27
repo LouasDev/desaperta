@@ -8,10 +8,15 @@ export type TabParams = {
 };
 export type RootParams = {
   Main: NavigatorScreenParams<TabParams> | undefined;
-  TransactionForm: { id?: string; type?: Flow; cardId?: string } | undefined;
+  TransactionForm:
+    { id?: string; type?: Flow; cardId?: string; cashAccountId?: string } | undefined;
   DebtForm: { id?: string; direction?: Direction } | undefined;
   DebtDetail: { id: string };
   Cards: undefined;
+  Accounts: undefined;
+  AccountForm: { id?: string } | undefined;
+  AccountDetail: { id: string };
+  TransferForm: undefined;
   CardForm: { id?: string } | undefined;
   CardDetail: { id: string };
   Goals: undefined;

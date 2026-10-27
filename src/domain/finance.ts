@@ -1,4 +1,11 @@
-import type { CreditCard, Goal, Recurrence, RecurrenceEvent, Settings } from './models';
+import type {
+  CashAccount,
+  CreditCard,
+  Goal,
+  Recurrence,
+  RecurrenceEvent,
+  Settings,
+} from './models';
 export type Flow = 'income' | 'expense';
 export type Direction = 'payable' | 'receivable';
 export interface Person {
@@ -21,6 +28,8 @@ export interface Transaction {
   paymentId?: string;
   account?: 'cash' | 'credit';
   cardId?: string;
+  cashAccountId?: string;
+  transferId?: string;
   cardPaymentFor?: string;
   recurrenceId?: string;
   occurrence?: string;
@@ -42,7 +51,8 @@ export interface Payment {
   transactionId: string;
 }
 export interface FinanceData {
-  version: 2;
+  version: 3;
+  cashAccounts: CashAccount[];
   settings: Settings;
   cards: CreditCard[];
   goals: Goal[];
@@ -54,7 +64,7 @@ export interface FinanceData {
   debts: Debt[];
   payments: Payment[];
 }
-
+export const DEFAULT_ACCOUNT_ID = 'default-cash';
 export const MAX_AMOUNT = 999_999_999;
 export const id = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 export const today = () => {
@@ -65,7 +75,6 @@ export const money = (cents: number) =>
   (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 export const displayDate = (iso: string) => iso.split('-').reverse().join('/');
 export const inputMoney = (cents: number) => (cents / 100).toFixed(2).replace('.', ',');
-
 function ensure(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
@@ -110,8 +119,9 @@ export function text(value: string, label: string): string {
 }
 export function emptyData(): FinanceData {
   return {
-    version: 2,
-    settings: { completed: false, openingBalance: 0 },
+    version: 3,
+    settings: { completed: false },
+    cashAccounts: [{ id: DEFAULT_ACCOUNT_ID, name: 'Conta principal', openingBalance: 0 }],
     cards: [],
     goals: [],
     recurrences: [],
@@ -129,7 +139,7 @@ export function emptyData(): FinanceData {
       { id: 'transport', name: 'Transporte', type: 'expense' },
       { id: 'leisure', name: 'Lazer', type: 'expense' },
       { id: 'study', name: 'Estudos', type: 'expense' },
-      { id: 'subscriptions', name: 'Assinaturas', type: 'expense' },
+      { id: 'subscriptions', name: 'Assinaturas', type: 'expense' as const },
       { id: 'payment-in', name: 'Recebimento de dívida', type: 'income' },
       { id: 'payment-out', name: 'Pagamento de dívida', type: 'expense' },
     ],
@@ -144,16 +154,16 @@ export function debtStatus(data: FinanceData, debt: Debt) {
 }
 export function totals(data: FinanceData) {
   const income = data.transactions
-    .filter((t) => t.type === 'income')
+    .filter((t) => t.type === 'income' && !t.transferId)
     .reduce((s, t) => s + t.amount, 0);
   const expense = data.transactions
-    .filter((t) => t.type === 'expense' && !t.cardPaymentFor)
+    .filter((t) => t.type === 'expense' && !t.cardPaymentFor && !t.transferId)
     .reduce((s, t) => s + t.amount, 0);
   return {
     income,
     expense,
     balance:
-      data.settings.openingBalance +
+      data.cashAccounts.reduce((sum, account) => sum + account.openingBalance, 0) +
       data.transactions.reduce(
         (sum, t) =>
           sum +
@@ -177,7 +187,7 @@ export function saveTransaction(
   const existing = data.transactions.find((t) => t.id === editId);
   ensure(!editId || existing, 'Lançamento não encontrado.');
   ensure(
-    !existing?.paymentId && !existing?.cardPaymentFor,
+    !existing?.paymentId && !existing?.cardPaymentFor && !existing?.transferId,
     'Desfaça este registro na tela de origem.',
   );
   const transaction = {
@@ -185,6 +195,8 @@ export function saveTransaction(
     ...input,
     account: input.account ?? 'cash',
     cardId: input.account === 'credit' ? input.cardId : undefined,
+    cashAccountId:
+      input.account === 'credit' ? undefined : (input.cashAccountId ?? data.cashAccounts[0].id),
     title: text(input.title, 'Descrição'),
     id: editId ?? id(),
   };
@@ -199,7 +211,9 @@ export function deleteTransaction(data: FinanceData, transactionId: string): Fin
   ensure(existing && !existing.paymentId, 'Remova pagamentos pelo histórico da dívida.');
   return validateData({
     ...data,
-    transactions: data.transactions.filter((t) => t.id !== transactionId),
+    transactions: data.transactions.filter((t) =>
+      existing.transferId ? t.transferId !== existing.transferId : t.id !== transactionId,
+    ),
     recurrenceEvents: data.recurrenceEvents.map((e) =>
       e.transactionId === transactionId
         ? { ...e, status: 'skipped' as const, transactionId: undefined }
@@ -252,6 +266,7 @@ export function addPayment(
   debtId: string,
   amount: number,
   date: string,
+  cashAccountId = data.cashAccounts[0].id,
 ): FinanceData {
   const debt = data.debts.find((d) => d.id === debtId);
   ensure(debt, 'Dívida não encontrada.');
@@ -272,6 +287,7 @@ export function addPayment(
     type: incoming ? 'income' : 'expense',
     categoryId: incoming ? 'payment-in' : 'payment-out',
     paymentId,
+    cashAccountId,
   };
   return validateData({
     ...data,
@@ -297,18 +313,15 @@ export function deleteDebt(data: FinanceData, debtId: string): FinanceData {
     transactions: data.transactions.filter((t) => !t.paymentId || !paymentIds.has(t.paymentId)),
   };
 }
-
 // All writes and imports pass through the same invariants, including references.
 export function validateData(value: unknown): FinanceData {
   const raw = value as FinanceData;
   ensure(
-    raw &&
-      typeof raw === 'object' &&
-      (raw.version === 2 || (raw as { version: number }).version === 1),
+    raw && typeof raw === 'object' && [1, 2, 3].includes((raw as { version: number }).version),
     'Formato ou versão de backup incompatível.',
   );
   const legacy = (raw as { version: number }).version === 1;
-  const data: FinanceData = legacy
+  const previous = legacy
     ? {
         ...raw,
         version: 2,
@@ -320,9 +333,37 @@ export function validateData(value: unknown): FinanceData {
         categories: Array.isArray(raw.categories)
           ? [
               ...raw.categories.filter((c) => c?.id !== 'subscriptions'),
-              { id: 'subscriptions', name: 'Assinaturas', type: 'expense' },
+              { id: 'subscriptions', name: 'Assinaturas', type: 'expense' as const },
             ]
           : raw.categories,
+      }
+    : raw;
+  const old = (raw as { version: number }).version < 3;
+  const oldSettings = previous.settings as Settings & { openingBalance: number };
+  const data: FinanceData = old
+    ? {
+        ...previous,
+        version: 3,
+        settings: { completed: oldSettings?.completed },
+        cashAccounts: [
+          {
+            id: DEFAULT_ACCOUNT_ID,
+            name: 'Conta principal',
+            openingBalance: oldSettings?.openingBalance,
+          },
+        ],
+        transactions: Array.isArray(previous.transactions)
+          ? previous.transactions.map((t) => ({
+              ...t,
+              cashAccountId: t.account === 'credit' ? undefined : DEFAULT_ACCOUNT_ID,
+            }))
+          : previous.transactions,
+        recurrences: Array.isArray(previous.recurrences)
+          ? previous.recurrences.map((r) => ({
+              ...r,
+              cashAccountId: r.account === 'credit' ? undefined : DEFAULT_ACCOUNT_ID,
+            }))
+          : previous.recurrences,
       }
     : raw;
   for (const key of [
@@ -331,6 +372,7 @@ export function validateData(value: unknown): FinanceData {
     'transactions',
     'debts',
     'payments',
+    'cashAccounts',
     'cards',
     'goals',
     'recurrences',
@@ -418,8 +460,13 @@ export function validateData(value: unknown): FinanceData {
   validateExtensions(data);
   // Only known fields are kept, preventing imported metadata from being persisted.
   return {
-    version: 2,
-    settings: { completed: data.settings.completed, openingBalance: data.settings.openingBalance },
+    version: 3,
+    settings: { completed: data.settings.completed },
+    cashAccounts: data.cashAccounts.map(({ id, name, openingBalance }) => ({
+      id,
+      name,
+      openingBalance,
+    })),
     cards: data.cards.map(({ id, name, limit, openingUsed }) => ({ id, name, limit, openingUsed })),
     goals: data.goals.map(({ id, type, categoryId, amount, month }) => ({
       id,
@@ -429,7 +476,18 @@ export function validateData(value: unknown): FinanceData {
       month,
     })),
     recurrences: data.recurrences.map(
-      ({ id, title, amount, type, categoryId, account, cardId, startDate, active }) => ({
+      ({
+        id,
+        title,
+        amount,
+        type,
+        categoryId,
+        account,
+        cardId,
+        cashAccountId,
+        startDate,
+        active,
+      }) => ({
         id,
         title,
         amount,
@@ -437,6 +495,7 @@ export function validateData(value: unknown): FinanceData {
         categoryId,
         account,
         ...(cardId ? { cardId } : {}),
+        ...(cashAccountId ? { cashAccountId } : {}),
         startDate,
         active,
       }),
@@ -472,6 +531,8 @@ export function validateData(value: unknown): FinanceData {
         paymentId,
         account,
         cardId,
+        cashAccountId,
+        transferId,
         cardPaymentFor,
         recurrenceId,
         occurrence,
@@ -485,6 +546,8 @@ export function validateData(value: unknown): FinanceData {
         ...(paymentId ? { paymentId } : {}),
         account: account ?? 'cash',
         ...(cardId ? { cardId } : {}),
+        ...(cashAccountId ? { cashAccountId } : {}),
+        ...(transferId ? { transferId } : {}),
         ...(cardPaymentFor ? { cardPaymentFor } : {}),
         ...(recurrenceId ? { recurrenceId, occurrence } : {}),
       }),
@@ -508,7 +571,6 @@ export function parseBackup(raw: string): FinanceData {
   }
   return validateData(value);
 }
-
 export function normalizePhone(value: string): string {
   if (!value.trim()) return '';
   const digits = value.replace(/[^\d]/g, '');
@@ -526,16 +588,31 @@ function validateExtensions(data: FinanceData) {
   const month = (value: string) =>
     typeof value === 'string' && /^\d{4}-\d{2}$/.test(value) && validDate(`${value}-01`);
   ensure(
-    data.settings &&
-      typeof data.settings.completed === 'boolean' &&
-      Number.isSafeInteger(data.settings.openingBalance) &&
-      Math.abs(data.settings.openingBalance) <= MAX_AMOUNT,
+    data.settings && typeof data.settings.completed === 'boolean',
     'Configuração inicial inválida.',
   );
-  const accountValid = (item: { account?: string; cardId?: string; type: string }) =>
-    ((item.account === undefined || item.account === 'cash') && item.cardId === undefined) ||
+  ensure(data.cashAccounts.length > 0, 'Mantenha pelo menos uma conta cadastrada.');
+  for (const a of data.cashAccounts)
+    ensure(
+      typeof a.name === 'string' &&
+        a.name.trim().length > 0 &&
+        a.name.length <= 100 &&
+        Number.isSafeInteger(a.openingBalance) &&
+        Math.abs(a.openingBalance) <= MAX_AMOUNT,
+      'Conta ou saldo inicial inválido.',
+    );
+  const accountValid = (item: {
+    account?: string;
+    cardId?: string;
+    cashAccountId?: string;
+    type: string;
+  }) =>
+    ((item.account === undefined || item.account === 'cash') &&
+      item.cardId === undefined &&
+      data.cashAccounts.some((a) => a.id === item.cashAccountId)) ||
     (item.account === 'credit' &&
       item.type === 'expense' &&
+      item.cashAccountId === undefined &&
       data.cards.some((c) => c.id === item.cardId));
   for (const card of data.cards) {
     ensure(
@@ -585,6 +662,30 @@ function validateExtensions(data: FinanceData) {
             e.status === 'posted',
         ),
       'Recorrência sem ocorrência correspondente.',
+    );
+  }
+  const transferIds = new Set(
+    data.transactions.filter((t) => t.transferId).map((t) => t.transferId),
+  );
+  for (const transferId of transferIds) {
+    ensure(
+      typeof transferId === 'string' && transferId.length > 0 && transferId.length <= 100,
+      'Transferência inválida.',
+    );
+    const pair = data.transactions.filter((t) => t.transferId === transferId);
+    const incoming = pair.find((t) => t.type === 'income'),
+      outgoing = pair.find((t) => t.type === 'expense');
+    ensure(
+      pair.length === 2 &&
+        incoming &&
+        outgoing &&
+        pair.every(
+          (t) => t.account !== 'credit' && !t.cardPaymentFor && !t.paymentId && !t.recurrenceId,
+        ) &&
+        incoming.cashAccountId !== outgoing.cashAccountId &&
+        incoming.amount === outgoing.amount &&
+        incoming.date === outgoing.date,
+      'A transferência deve manter as duas contas e os dois lançamentos consistentes.',
     );
   }
   const goalKeys = new Set<string>();

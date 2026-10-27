@@ -1,3 +1,5 @@
+import type { TransactionInput } from '../domain/finance';
+import { CashAccountPicker } from '../components/CashAccountPicker';
 import React, { useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -48,6 +50,9 @@ export default function TransactionFormScreen({
     existing?.account ?? (route.params?.cardId ? 'credit' : 'cash'),
   );
   const [cardId, setCardId] = useState(existing?.cardId ?? route.params?.cardId);
+  const [cashAccountId, setCashAccountId] = useState(
+    existing?.cashAccountId ?? route.params?.cashAccountId ?? data.cashAccounts[0].id,
+  );
   const [repeat, setRepeat] = useState<'once' | 'monthly'>('once');
   const snapshot = JSON.stringify({
     type,
@@ -57,6 +62,7 @@ export default function TransactionFormScreen({
     categoryId,
     account,
     cardId,
+    cashAccountId,
     repeat,
   });
   const initialSnapshot = useRef(snapshot);
@@ -65,14 +71,14 @@ export default function TransactionFormScreen({
   const save = async () => {
     setError('');
     try {
-      const input = {
+      const input: TransactionInput = {
         title: text(title, 'Descrição'),
         amount: parseMoney(amount),
         date: parseDate(date, false),
         type,
         categoryId,
         account: type === 'expense' ? account : ('cash' as const),
-        ...(type === 'expense' && account === 'credit' ? { cardId } : {}),
+        ...(type === 'expense' && account === 'credit' ? { cardId } : { cashAccountId }),
       };
       await commit((current) => {
         if (!existing && repeat === 'monthly') {
@@ -81,8 +87,9 @@ export default function TransactionFormScreen({
             amount: input.amount,
             type: input.type,
             categoryId: input.categoryId,
-            account: input.account,
+            account: input.account ?? 'cash',
             cardId: input.cardId,
+            cashAccountId: input.cashAccountId,
             startDate: input.date,
             active: true,
           });
@@ -154,6 +161,28 @@ export default function TransactionFormScreen({
         />
       </Page>
     );
+  if (existing?.transferId)
+    return (
+      <Page title="Transferência entre contas" back={() => navigation.goBack()}>
+        <Card>
+          <Text style={styles.subtitle}>{existing.title}</Text>
+          <Text style={styles.body}>
+            Valor: R$ {inputMoney(existing.amount)} · {displayDate(existing.date)}
+          </Text>
+          <Text style={styles.body}>
+            Desfazer remove os dois lados da transferência e recalcula o saldo das duas contas. O
+            saldo total é mantido.
+          </Text>
+        </Card>
+        <ErrorText message={error} />
+        <Button
+          label="Desfazer transferência"
+          variant="danger"
+          onPress={remove}
+          disabled={saving}
+        />
+      </Page>
+    );
   return (
     <Page
       title={existing ? 'Editar lançamento' : 'Novo lançamento'}
@@ -202,13 +231,22 @@ export default function TransactionFormScreen({
           onChange={setCategory}
           options={categories.map((c) => ({ value: c.id, label: c.name }))}
         />
+        {type === 'income' && (
+          <CashAccountPicker
+            label="Receber na conta"
+            value={cashAccountId}
+            onChange={setCashAccountId}
+          />
+        )}
         {type === 'expense' && (
           <AccountFields
             account={account}
             cardId={cardId}
-            onChange={(value, selected) => {
+            cashAccountId={cashAccountId}
+            onChange={(value, selected, cashId) => {
               setAccount(value);
               setCardId(selected);
+              if (cashId) setCashAccountId(cashId);
             }}
           />
         )}

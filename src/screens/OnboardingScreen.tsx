@@ -9,6 +9,7 @@ import { useTheme } from '../state/ThemeContext';
 export default function OnboardingScreen() {
   const { data, commit, saving } = useFinance();
   const { styles } = useTheme();
+  const [accountName, setAccountName] = useState('Conta principal');
   const [balance, setBalance] = useState('0,00');
   const [credit, setCredit] = useState<'no' | 'yes'>('no');
   const [name, setName] = useState('Meu cartão');
@@ -27,7 +28,7 @@ export default function OnboardingScreen() {
               openingUsed: moneyOrZero(used),
             }
           : undefined;
-      await commit((current) => configure(current, openingBalance, card));
+      await commit((current) => configure(current, openingBalance, card, accountName));
     } catch (e) {
       setError(messageOf(e));
     }
@@ -35,7 +36,13 @@ export default function OnboardingScreen() {
   return (
     <Page title="Configuração inicial" subtitle="Defina o ponto de partida do seu controle.">
       <Card>
-        <Text style={styles.subtitle}>Seu dinheiro agora</Text>
+        <Text style={styles.subtitle}>Sua primeira conta</Text>
+        <Field
+          label="Nome da conta *"
+          value={accountName}
+          onChangeText={setAccountName}
+          placeholder="Ex.: Nubank ou Carteira"
+        />
         <Field
           label="Saldo inicial (R$)"
           value={balance}
@@ -86,6 +93,9 @@ export default function OnboardingScreen() {
           </>
         )}
       </Card>
+      <Text style={styles.small}>
+        Depois você pode adicionar outras contas e cartões no painel ou em Ajustes.
+      </Text>
       <ErrorText message={error} />
       <Button label={saving ? 'Salvando…' : 'Começar a usar'} disabled={saving} onPress={finish} />
     </Page>

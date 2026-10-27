@@ -7,6 +7,7 @@
 - `src/storage/repository.ts`: conecta o repositório ao AsyncStorage.
 - `src/state/FinanceContext.tsx`: carrega os registros, serializa as operações de escrita e atualiza a interface somente depois de salvar.
 - `src/domain/planning.ts` e `models.ts`: cartões, metas, recorrências e resumo para WhatsApp.
+- `src/domain/accounts.ts`: contas com saldos próprios e transferências entre contas.
 - `src/state/ThemeContext.tsx`: preferência de tema por dispositivo e adaptação ao sistema.
 - `src/screens/`: telas separadas por responsabilidade, incluindo configuração inicial, cartões, metas e recorrências.
 - `src/components/`: botões, campos, cartões, filtros, confirmações e itens reutilizáveis.
@@ -16,7 +17,7 @@
 
 ## Dados e relacionamentos
 
-Todos os IDs são strings. Valores monetários são inteiros em centavos; datas são strings `AAAA-MM-DD`, sem conversão por fuso horário. O esquema atual é `2`, com migração dos backups da versão `1` preservando o histórico. As regras da extensão estão em [Versão 1.1](VERSAO-1.1.md).
+Todos os IDs são strings. Valores monetários são inteiros em centavos; datas são strings `AAAA-MM-DD`, sem conversão por fuso horário. O esquema atual é `3`, com migração dos backups das versões `1` e `2` preservando o histórico. O saldo inicial agora pertence a cada conta; transações e recorrências em dinheiro possuem `cashAccountId`. Transferências usam duas transações ligadas por `transferId`, excluídas das receitas, gastos e metas. Veja [Versão 1.2](VERSAO-1.2.md).
 
 ```mermaid
 erDiagram
@@ -25,6 +26,8 @@ erDiagram
   Pagamento o|--|| Movimentacao : gera
   Categoria ||--o{ Movimentacao : classifica
   Categoria ||--o{ Meta : acompanha
+  Conta ||--o{ Movimentacao : movimenta
+  Conta o|--o{ Recorrencia : utiliza
   Cartao o|--o{ Movimentacao : financia
   Recorrencia ||--o{ Ocorrencia : agenda
   Pessoa {
@@ -67,6 +70,11 @@ erDiagram
     string name
     int limit
     int openingUsed
+  }
+  Conta {
+    string id PK
+    string name
+    int openingBalance
   }
   Meta {
     string id PK

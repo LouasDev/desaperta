@@ -23,6 +23,10 @@ import GoalsScreen from '../screens/GoalsScreen';
 import GoalFormScreen from '../screens/GoalFormScreen';
 import RecurrencesScreen from '../screens/RecurrencesScreen';
 import RecurrenceFormScreen from '../screens/RecurrenceFormScreen';
+import AccountsScreen from '../screens/AccountsScreen';
+import AccountFormScreen from '../screens/AccountFormScreen';
+import AccountDetailScreen from '../screens/AccountDetailScreen';
+import TransferFormScreen from '../screens/TransferFormScreen';
 const Stack = createNativeStackNavigator<RootParams>();
 const Tabs = createBottomTabNavigator<TabParams>();
 const tabInfo: Record<string, { label: string; icon: IconName }> = {
@@ -135,6 +139,10 @@ export default function AppNavigator() {
         <Stack.Screen name="DebtForm" component={DebtFormScreen} />
         <Stack.Screen name="DebtDetail" component={DebtDetailScreen} />
         <Stack.Screen name="Cards" component={CardsScreen} />
+        <Stack.Screen name="Accounts" component={AccountsScreen} />
+        <Stack.Screen name="AccountForm" component={AccountFormScreen} />
+        <Stack.Screen name="AccountDetail" component={AccountDetailScreen} />
+        <Stack.Screen name="TransferForm" component={TransferFormScreen} />
         <Stack.Screen name="CardForm" component={CardFormScreen} />
         <Stack.Screen name="CardDetail" component={CardDetailScreen} />
         <Stack.Screen name="Goals" component={GoalsScreen} />

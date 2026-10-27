@@ -6,6 +6,8 @@ contraste discreto, ícones de traço e relevo leve nos controles.
 
 ## O que já funciona
 
+- Várias contas com saldos próprios, extrato e transferência interna sem duplicar receitas ou gastos.
+- Vários cartões com barras individuais de limite utilizado, valores disponíveis e aviso de excesso.
 - Configuração inicial com saldo em conta, limite do cartão e gastos anteriores.
 - Cartões com compras no crédito, limite disponível e pagamento de fatura sem duplicar despesas.
 - Gastos e entradas recorrentes mensais, com confirmação das ocorrências realizadas.
@@ -35,7 +37,7 @@ contraste discreto, ícones de traço e relevo leve nos controles.
    pagamentos/recebimentos que realmente aconteceram.
 5. Em **Ajustes**, acesse cartões, metas, recorrências, aparência e backups.
 
-Veja [as instruções da versão 1.1](docs/VERSAO-1.1.md) para entender compras no crédito,
+Veja [contas e barras de limite na versão 1.2](docs/VERSAO-1.2.md) e [as instruções da versão 1.1](docs/VERSAO-1.1.md) para entender compras no crédito,
 pagamento de fatura, metas e previsões recorrentes. O saldo só muda com operações
 confirmadas; o app não realiza pagamentos bancários. A mensagem do WhatsApp abre
 preenchida para você revisar e enviar.

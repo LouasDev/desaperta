@@ -11,6 +11,7 @@ import {
 } from '../domain/finance';
 import { useTheme } from '../state/ThemeContext';
 import { Icon } from './Icon';
+import { useFinance } from '../state/FinanceContext';
 export function TransactionRow({
   item,
   category,
@@ -22,6 +23,11 @@ export function TransactionRow({
 }) {
   const { colors, styles } = useTheme();
   const incoming = item.type === 'income';
+  const { data } = useFinance();
+  const accountName =
+    item.account === 'credit'
+      ? data.cards.find((c) => c.id === item.cardId)?.name
+      : data.cashAccounts.find((a) => a.id === item.cashAccountId)?.name;
   return (
     <Pressable
       accessibilityRole="button"
@@ -52,6 +58,8 @@ export function TransactionRow({
             {category} · {displayDate(item.date)}
             {item.paymentId ? ' · Vinculado' : ''}
             {item.cardPaymentFor ? ' · Fatura' : item.account === 'credit' ? ' · Crédito' : ''}
+            {item.transferId ? ' · Transferência' : ''}
+            {accountName ? ` · ${accountName}` : ''}
           </Text>
         </View>
       </View>

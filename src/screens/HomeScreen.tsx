@@ -1,3 +1,5 @@
+import { CreditUsage } from '../components/CreditUsage';
+import { accountBalance } from '../domain/accounts';
 import type { Palette, AppTheme } from '../styles/theme';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -20,8 +22,6 @@ export default function HomeScreen() {
   const summary = totals(data);
   const dueCount = dueOccurrences(data).length;
   const currentGoals = data.goals.filter((g) => g.month === today().slice(0, 7));
-  const cardUsed = data.cards.reduce((sum, c) => sum + cardTotals(data, c.id).outstanding, 0);
-  const creditAvailable = data.cards.reduce((sum, c) => sum + cardTotals(data, c.id).available, 0);
   const recent = [...data.transactions]
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
     .slice(0, 4);
@@ -30,7 +30,11 @@ export default function HomeScreen() {
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0, 2);
   const expenses = data.transactions.filter(
-    (t) => t.type === 'expense' && !t.cardPaymentFor && t.date.startsWith(today().slice(0, 7)),
+    (t) =>
+      t.type === 'expense' &&
+      !t.cardPaymentFor &&
+      !t.transferId &&
+      t.date.startsWith(today().slice(0, 7)),
   );
   const monthTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
   const categories = data.categories
@@ -62,12 +66,33 @@ export default function HomeScreen() {
     >
       <View style={home.balance}>
         <View style={styles.between}>
-          <Text style={styles.body}>Saldo registrado</Text>
-          <Text style={styles.small}>Todo o período</Text>
+          <Text style={styles.body}>Saldo nas contas</Text>
+          <Button
+            label="Ver contas"
+            compact
+            variant="secondary"
+            onPress={() => navigation.navigate('Accounts')}
+          />
         </View>
         <Text style={home.amount} numberOfLines={1} adjustsFontSizeToFit>
           {money(summary.balance)}
         </Text>
+        <View style={{ gap: 10 }}>
+          {data.cashAccounts.map((account) => (
+            <Pressable
+              key={account.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver conta ${account.name}`}
+              onPress={() => navigation.navigate('AccountDetail', { id: account.id })}
+              style={styles.between}
+            >
+              <Text style={styles.body}>{account.name}</Text>
+              <Text style={[styles.body, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>
+                {money(accountBalance(data, account.id))}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={home.totals}>
           <View style={home.total}>
             <Text style={styles.small}>Entradas</Text>
@@ -123,22 +148,31 @@ export default function HomeScreen() {
             onPress={() => navigation.navigate('Recurrences')}
           />
         </View>
-        {!!data.cards.length && (
-          <Card>
-            <View style={styles.between}>
-              <View style={{ gap: 5 }}>
-                <Text style={styles.small}>Crédito disponível</Text>
-                <Text style={styles.subtitle}>{money(creditAvailable)}</Text>
-              </View>
-              <View style={{ gap: 5 }}>
-                <Text style={styles.small}>Cartão a pagar</Text>
-                <Text style={styles.subtitle}>{money(cardUsed)}</Text>
-              </View>
-            </View>
-            <Text style={styles.small}>Crédito não faz parte do saldo em conta.</Text>
-          </Card>
-        )}
       </View>
+      {!!data.cards.length && (
+        <View style={{ gap: 12 }}>
+          <View style={styles.between}>
+            <Text style={styles.subtitle}>Meus cartões</Text>
+            <Button
+              label="+ Adicionar cartão"
+              compact
+              variant="secondary"
+              onPress={() => navigation.navigate('CardForm')}
+            />
+          </View>
+          {data.cards.map((card) => (
+            <Pressable
+              key={card.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver cartão ${card.name}`}
+              onPress={() => navigation.navigate('CardDetail', { id: card.id })}
+              style={styles.card}
+            >
+              <CreditUsage card={card} used={cardTotals(data, card.id).outstanding} />
+            </Pressable>
+          ))}
+        </View>
+      )}
       {!!currentGoals.length && (
         <View style={{ gap: 12 }}>
           <Text style={styles.subtitle}>Metas deste mês</Text>

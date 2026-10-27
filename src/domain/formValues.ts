@@ -2,6 +2,10 @@ import { parseMoney, validDate } from './finance';
 export function moneyOrZero(value: string): number {
   return !value.trim() || /^0(?:[,.]0{1,2})?$/.test(value.trim()) ? 0 : parseMoney(value);
 }
+export function signedMoney(value: string): number {
+  const trimmed = value.trim();
+  return trimmed.startsWith('-') ? -moneyOrZero(trimmed.slice(1)) : moneyOrZero(trimmed);
+}
 export function parseMonth(value: string): string {
   if (!/^\d{2}\/\d{4}$/.test(value)) throw new Error('Use o mês no formato MM/AAAA.');
   const [m, y] = value.split('/');

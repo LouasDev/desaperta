@@ -1,3 +1,4 @@
+import { CashAccountPicker } from '../components/CashAccountPicker';
 import React, { useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -43,8 +44,20 @@ export default function RecurrenceFormScreen({
   );
   const [account, setAccount] = useState<'cash' | 'credit'>(existing?.account ?? 'cash');
   const [cardId, setCardId] = useState(existing?.cardId);
+  const [cashAccountId, setCashAccountId] = useState(
+    existing?.cashAccountId ?? data.cashAccounts[0].id,
+  );
   const [error, setError] = useState('');
-  const snapshot = JSON.stringify({ type, title, amount, date, categoryId, account, cardId }),
+  const snapshot = JSON.stringify({
+      type,
+      title,
+      amount,
+      date,
+      categoryId,
+      account,
+      cardId,
+      cashAccountId,
+    }),
     initial = useRef(snapshot);
   const allowLeave = useUnsavedChanges(snapshot !== initial.current, saving);
   const save = async () => {
@@ -56,7 +69,7 @@ export default function RecurrenceFormScreen({
         type,
         categoryId,
         account: type === 'income' ? ('cash' as const) : account,
-        ...(type === 'expense' && account === 'credit' ? { cardId } : {}),
+        ...(type === 'expense' && account === 'credit' ? { cardId } : { cashAccountId }),
         startDate: parseDate(date),
         active: existing?.active ?? true,
       };
@@ -115,13 +128,22 @@ export default function RecurrenceFormScreen({
             .filter((c) => c.type === type && !c.id.startsWith('payment-'))
             .map((c) => ({ value: c.id, label: c.name }))}
         />
+        {type === 'income' && (
+          <CashAccountPicker
+            label="Receber na conta"
+            value={cashAccountId}
+            onChange={setCashAccountId}
+          />
+        )}
         {type === 'expense' && (
           <AccountFields
             account={account}
             cardId={cardId}
-            onChange={(value, selected) => {
+            cashAccountId={cashAccountId}
+            onChange={(value, selected, cashId) => {
               setAccount(value);
               setCardId(selected);
+              if (cashId) setCashAccountId(cashId);
             }}
           />
         )}
