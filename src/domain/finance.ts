@@ -1,3 +1,4 @@
+import { cardBills, cycleForDate, recognized, shiftMonth } from './billing';
 import type {
   CashAccount,
   CreditCard,
@@ -33,6 +34,11 @@ export interface Transaction {
   cardPaymentFor?: string;
   recurrenceId?: string;
   occurrence?: string;
+  billMonth?: string;
+  purchaseId?: string;
+  installment?: number;
+  installments?: number;
+  importKey?: string;
 }
 export interface Debt {
   id: string;
@@ -51,7 +57,7 @@ export interface Payment {
   transactionId: string;
 }
 export interface FinanceData {
-  version: 3;
+  version: 4;
   cashAccounts: CashAccount[];
   settings: Settings;
   cards: CreditCard[];
@@ -119,7 +125,7 @@ export function text(value: string, label: string): string {
 }
 export function emptyData(): FinanceData {
   return {
-    version: 3,
+    version: 4,
     settings: { completed: false },
     cashAccounts: [{ id: DEFAULT_ACCOUNT_ID, name: 'Conta principal', openingBalance: 0 }],
     cards: [],
@@ -157,7 +163,9 @@ export function totals(data: FinanceData) {
     .filter((t) => t.type === 'income' && !t.transferId)
     .reduce((s, t) => s + t.amount, 0);
   const expense = data.transactions
-    .filter((t) => t.type === 'expense' && !t.cardPaymentFor && !t.transferId)
+    .filter(
+      (t) => t.type === 'expense' && !t.cardPaymentFor && !t.transferId && recognized(t, today()),
+    )
     .reduce((s, t) => s + t.amount, 0);
   return {
     income,
@@ -187,7 +195,10 @@ export function saveTransaction(
   const existing = data.transactions.find((t) => t.id === editId);
   ensure(!editId || existing, 'Lançamento não encontrado.');
   ensure(
-    !existing?.paymentId && !existing?.cardPaymentFor && !existing?.transferId,
+    !existing?.paymentId &&
+      !existing?.cardPaymentFor &&
+      !existing?.transferId &&
+      !existing?.purchaseId,
     'Desfaça este registro na tela de origem.',
   );
   const transaction = {
@@ -195,6 +206,7 @@ export function saveTransaction(
     ...input,
     account: input.account ?? 'cash',
     cardId: input.account === 'credit' ? input.cardId : undefined,
+    billMonth: input.account === 'credit' ? (input.billMonth ?? existing?.billMonth) : undefined,
     cashAccountId:
       input.account === 'credit' ? undefined : (input.cashAccountId ?? data.cashAccounts[0].id),
     title: text(input.title, 'Descrição'),
@@ -212,7 +224,11 @@ export function deleteTransaction(data: FinanceData, transactionId: string): Fin
   return validateData({
     ...data,
     transactions: data.transactions.filter((t) =>
-      existing.transferId ? t.transferId !== existing.transferId : t.id !== transactionId,
+      existing.purchaseId
+        ? t.purchaseId !== existing.purchaseId
+        : existing.transferId
+          ? t.transferId !== existing.transferId
+          : t.id !== transactionId,
     ),
     recurrenceEvents: data.recurrenceEvents.map((e) =>
       e.transactionId === transactionId
@@ -317,7 +333,7 @@ export function deleteDebt(data: FinanceData, debtId: string): FinanceData {
 export function validateData(value: unknown): FinanceData {
   const raw = value as FinanceData;
   ensure(
-    raw && typeof raw === 'object' && [1, 2, 3].includes((raw as { version: number }).version),
+    raw && typeof raw === 'object' && [1, 2, 3, 4].includes((raw as { version: number }).version),
     'Formato ou versão de backup incompatível.',
   );
   const legacy = (raw as { version: number }).version === 1;
@@ -340,10 +356,10 @@ export function validateData(value: unknown): FinanceData {
     : raw;
   const old = (raw as { version: number }).version < 3;
   const oldSettings = previous.settings as Settings & { openingBalance: number };
-  const data: FinanceData = old
+  const base: FinanceData = old
     ? {
         ...previous,
-        version: 3,
+        version: 4,
         settings: { completed: oldSettings?.completed },
         cashAccounts: [
           {
@@ -366,6 +382,44 @@ export function validateData(value: unknown): FinanceData {
           : previous.recurrences,
       }
     : raw;
+  const cards = Array.isArray(base.cards)
+    ? base.cards.map((c) => ({
+        ...c,
+        cycleConfigured:
+          c.cycleConfigured ?? (c.closingDay !== undefined && c.dueDay !== undefined),
+        closingDay: c.closingDay ?? 25,
+        dueDay: c.dueDay ?? 5,
+        openingBillMonth:
+          c.openingBillMonth ??
+          ((raw as { version: number }).version < 4
+            ? today().slice(0, 7)
+            : cycleForDate(today(), c.closingDay ?? 25)),
+      }))
+    : base.cards;
+  const data: FinanceData = {
+    ...base,
+    version: 4,
+    cards,
+    settings: { ...base.settings, billReminders: base.settings?.billReminders ?? false },
+    transactions: Array.isArray(base.transactions)
+      ? base.transactions.map((t) =>
+          t.account === 'credit' && !t.billMonth
+            ? {
+                ...t,
+                billMonth:
+                  (raw as { version: number }).version < 4
+                    ? t.date.slice(0, 7)
+                    : cycleForDate(
+                        t.date,
+                        Array.isArray(cards)
+                          ? cards.find((c) => c.id === t.cardId)?.closingDay
+                          : 25,
+                      ),
+              }
+            : t,
+        )
+      : base.transactions,
+  };
   for (const key of [
     'people',
     'categories',
@@ -460,14 +514,34 @@ export function validateData(value: unknown): FinanceData {
   validateExtensions(data);
   // Only known fields are kept, preventing imported metadata from being persisted.
   return {
-    version: 3,
-    settings: { completed: data.settings.completed },
+    version: 4,
+    settings: { completed: data.settings.completed, billReminders: data.settings.billReminders },
     cashAccounts: data.cashAccounts.map(({ id, name, openingBalance }) => ({
       id,
       name,
       openingBalance,
     })),
-    cards: data.cards.map(({ id, name, limit, openingUsed }) => ({ id, name, limit, openingUsed })),
+    cards: data.cards.map(
+      ({
+        id,
+        name,
+        limit,
+        openingUsed,
+        closingDay,
+        dueDay,
+        openingBillMonth,
+        cycleConfigured,
+      }) => ({
+        id,
+        name,
+        limit,
+        openingUsed,
+        closingDay,
+        dueDay,
+        openingBillMonth,
+        cycleConfigured,
+      }),
+    ),
     goals: data.goals.map(({ id, type, categoryId, amount, month }) => ({
       id,
       type,
@@ -536,6 +610,11 @@ export function validateData(value: unknown): FinanceData {
         cardPaymentFor,
         recurrenceId,
         occurrence,
+        billMonth,
+        purchaseId,
+        installment,
+        installments,
+        importKey,
       }) => ({
         id,
         title,
@@ -550,6 +629,9 @@ export function validateData(value: unknown): FinanceData {
         ...(transferId ? { transferId } : {}),
         ...(cardPaymentFor ? { cardPaymentFor } : {}),
         ...(recurrenceId ? { recurrenceId, occurrence } : {}),
+        ...(billMonth ? { billMonth } : {}),
+        ...(purchaseId ? { purchaseId, installment, installments } : {}),
+        ...(importKey ? { importKey } : {}),
       }),
     ),
     payments: data.payments.map(({ id, debtId, amount, date, transactionId }) => ({
@@ -588,7 +670,9 @@ function validateExtensions(data: FinanceData) {
   const month = (value: string) =>
     typeof value === 'string' && /^\d{4}-\d{2}$/.test(value) && validDate(`${value}-01`);
   ensure(
-    data.settings && typeof data.settings.completed === 'boolean',
+    data.settings &&
+      typeof data.settings.completed === 'boolean' &&
+      typeof data.settings.billReminders === 'boolean',
     'Configuração inicial inválida.',
   );
   ensure(data.cashAccounts.length > 0, 'Mantenha pelo menos uma conta cadastrada.');
@@ -620,7 +704,15 @@ function validateExtensions(data: FinanceData) {
         card.name.trim().length > 0 &&
         card.name.length <= 100 &&
         amount(card.limit) &&
-        amount(card.openingUsed, true),
+        amount(card.openingUsed, true) &&
+        typeof card.cycleConfigured === 'boolean' &&
+        Number.isInteger(card.closingDay) &&
+        card.closingDay! >= 1 &&
+        card.closingDay! <= 31 &&
+        Number.isInteger(card.dueDay) &&
+        card.dueDay! >= 1 &&
+        card.dueDay! <= 31 &&
+        month(card.openingBillMonth!),
       'Cartão inválido.',
     );
     const outstanding =
@@ -636,9 +728,27 @@ function validateExtensions(data: FinanceData) {
         0,
       );
     ensure(outstanding >= 0, 'O pagamento ultrapassa os gastos pendentes deste cartão.');
+    ensure(
+      cardBills(data, card.id, today()).every((bill) => bill.balance >= 0),
+      'O pagamento ultrapassa o total desta fatura.',
+    );
   }
   for (const t of data.transactions) {
     ensure(accountValid(t), 'Selecione um cartão válido para este gasto.');
+    ensure(
+      t.billMonth === undefined ||
+        (month(t.billMonth) && (t.account === 'credit' || !!t.cardPaymentFor)),
+      'Mês de fatura inválido.',
+    );
+    ensure(
+      t.importKey === undefined ||
+        (typeof t.importKey === 'string' && t.importKey.length > 0 && t.importKey.length <= 150),
+      'Identificador de importação inválido.',
+    );
+    ensure(
+      t.purchaseId !== undefined || (t.installment === undefined && t.installments === undefined),
+      'Parcela sem compra correspondente.',
+    );
     ensure(
       !t.cardPaymentFor ||
         (t.account !== 'credit' &&
@@ -688,6 +798,43 @@ function validateExtensions(data: FinanceData) {
       'A transferência deve manter as duas contas e os dois lançamentos consistentes.',
     );
   }
+  const purchaseIds = new Set(
+    data.transactions.filter((t) => t.purchaseId).map((t) => t.purchaseId),
+  );
+  for (const purchaseId of purchaseIds) {
+    const parts = data.transactions
+      .filter((t) => t.purchaseId === purchaseId)
+      .sort((a, b) => a.installment! - b.installment!);
+    const first = parts[0];
+    ensure(
+      typeof purchaseId === 'string' &&
+        purchaseId.length > 0 &&
+        purchaseId.length <= 100 &&
+        Number.isInteger(first.installments) &&
+        first.installments! >= 2 &&
+        first.installments! <= 60 &&
+        parts.length === first.installments &&
+        parts.reduce((sum, t) => sum + t.amount, 0) <= MAX_AMOUNT &&
+        parts.every(
+          (t, i) =>
+            t.account === 'credit' &&
+            t.cardId === first.cardId &&
+            t.title === first.title &&
+            t.categoryId === first.categoryId &&
+            t.date === first.date &&
+            t.installments === first.installments &&
+            t.installment === i + 1 &&
+            t.billMonth === shiftMonth(first.billMonth!, i) &&
+            !t.paymentId &&
+            !t.cardPaymentFor &&
+            !t.transferId &&
+            !t.recurrenceId,
+        ),
+      'Parcelamento inconsistente: mantenha todas as parcelas da compra.',
+    );
+  }
+  const importKeys = data.transactions.filter((t) => t.importKey).map((t) => t.importKey);
+  ensure(new Set(importKeys).size === importKeys.length, 'Esta movimentação já foi importada.');
   const goalKeys = new Set<string>();
   for (const g of data.goals) {
     const key = `${g.type}:${g.categoryId}:${g.month}`;

@@ -28,7 +28,7 @@ test('compra no crédito consome limite sem sair do saldo; pagar fatura não dup
     title: 'Lanche',
     amount: 2000,
     type: 'expense',
-    date: f.today(),
+    date: `${f.today().slice(0, 7)}-01`,
     categoryId: 'food',
     account: 'credit',
     cardId,
@@ -133,7 +133,7 @@ test('migração v1 preserva caixa e dívidas sem reiniciar os dados', () => {
   delete old.recurrenceEvents;
   old.categories = old.categories.filter((c) => c.id !== 'subscriptions');
   const migrated = f.parseBackup(JSON.stringify(old));
-  assert.equal(migrated.version, 3);
+  assert.equal(migrated.version, 4);
   assert.equal(migrated.debts.length, 1);
   assert.equal(f.totals(migrated).receivable, 10000);
 });

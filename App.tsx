@@ -5,6 +5,7 @@ import { FeedbackProvider } from './src/components/ui';
 import { FinanceProvider } from './src/state/FinanceContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './src/state/ThemeContext';
+import { ReminderProvider } from './src/state/ReminderContext';
 
 export default function App() {
   return (
@@ -20,7 +21,9 @@ function ThemedApp() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <FeedbackProvider>
         <FinanceProvider>
-          <AppNavigator />
+          <ReminderProvider>
+            <AppNavigator />
+          </ReminderProvider>
         </FinanceProvider>
       </FeedbackProvider>
     </SafeAreaProvider>

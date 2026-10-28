@@ -8,6 +8,7 @@ import {
   money,
   remaining,
   Transaction,
+  today,
 } from '../domain/finance';
 import { useTheme } from '../state/ThemeContext';
 import { Icon } from './Icon';
@@ -56,6 +57,11 @@ export function TransactionRow({
           <Text style={{ fontSize: 14, color: colors.ink, fontWeight: '500' }}>{item.title}</Text>
           <Text style={styles.small}>
             {category} · {displayDate(item.date)}
+            {item.installment ? ` · ${item.installment}/${item.installments}` : ''}
+            {item.billMonth ? ` · fatura ${item.billMonth.split('-').reverse().join('/')}` : ''}
+            {item.account === 'credit' && item.billMonth && item.billMonth > today().slice(0, 7)
+              ? ' · Prevista'
+              : ''}
             {item.paymentId ? ' · Vinculado' : ''}
             {item.cardPaymentFor ? ' · Fatura' : item.account === 'credit' ? ' · Crédito' : ''}
             {item.transferId ? ' · Transferência' : ''}

@@ -124,7 +124,7 @@ test('migração v2 mantém saldo, cartões e baixas sem duplicar abertura', () 
   delete previous.cashAccounts;
   previous.transactions = previous.transactions.map(({ cashAccountId, ...t }) => t);
   const migrated = f.parseBackup(JSON.stringify(previous));
-  assert.equal(migrated.version, 3);
+  assert.equal(migrated.version, 4);
   assert.equal(migrated.cashAccounts.length, 1);
   assert.equal(a.accountBalance(migrated, migrated.cashAccounts[0].id), 68000);
   assert.equal(f.totals(migrated).balance, 68000);

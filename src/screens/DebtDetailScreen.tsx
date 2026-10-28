@@ -1,6 +1,6 @@
 import { CashAccountPicker } from '../components/CashAccountPicker';
 import React, { useState } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Linking, Share, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Card, ErrorText, Field, messageOf, Page, useFeedback } from '../components/ui';
 import {
@@ -187,11 +187,32 @@ export default function DebtDetailScreen({
           onPress={() => setShowSummary((value) => !value)}
         />
         {showSummary && (
-          <Text selectable style={styles.body}>
-            {summary}
-          </Text>
+          <View
+            style={{
+              padding: 16,
+              backgroundColor: colors.input,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.line,
+            }}
+          >
+            <Text selectable style={[styles.body, { color: colors.ink, fontSize: 13 }]}>
+              {summary}
+            </Text>
+          </View>
         )}
         <Button label="Abrir mensagem no WhatsApp" onPress={openWhatsApp} />
+        <Button
+          label="Compartilhar resumo"
+          variant="secondary"
+          onPress={async () => {
+            try {
+              await Share.share({ title: `Resumo para ${person.name}`, message: summary });
+            } catch (e) {
+              setError(messageOf(e));
+            }
+          }}
+        />
         <Text style={styles.small}>
           {person.phone
             ? `Destino: +${person.phone}. `

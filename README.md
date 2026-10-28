@@ -1,10 +1,18 @@
 # Desaperta
 
 App de organização financeira para adolescentes: acompanhe o dinheiro que entra,
-o que sai, para quem você deve e quem deve para você. Interface com cores suaves,
-contraste discreto, ícones de traço e relevo leve nos controles.
+o que sai, para quem você deve e quem deve para você. Interface em grafite e roxo,
+com temas claro/escuro, ícones de traço e navegação por áreas.
 
 ## O que já funciona
+
+- Atualizações compatíveis sem APK pelo EAS Update, com busca manual em Ajustes.
+- Resumo do WhatsApp organizado por pessoa, itens, pagamentos e saldo líquido.
+
+- Assistente inicial com várias contas, vários cartões e revisão antes de salvar.
+- Compras em até 60 parcelas, faturas mensais, fechamento, vencimento e limite comprometido por parcelas futuras.
+- Importação local de CSV/OFX, com prévia, categorias, pagamentos de fatura e proteção contra reimportação.
+- Lembretes locais de fechamento e vencimento no Android, ativados em Ajustes.
 
 - Várias contas com saldos próprios, extrato e transferência interna sem duplicar receitas ou gastos.
 - Vários cartões com barras individuais de limite utilizado, valores disponíveis e aviso de excesso.
@@ -27,6 +35,8 @@ contraste discreto, ícones de traço e relevo leve nos controles.
 
 ## Começar a usar
 
+Veja [como publicar e receber atualizações](docs/ATUALIZACOES.md).
+
 Para instalar no celular Android sem Expo Go, consulte [instalação do APK e compilação local](docs/ANDROID.md).
 
 1. Abra `iniciar-web.cmd` para usar no navegador.
@@ -38,6 +48,8 @@ Para instalar no celular Android sem Expo Go, consulte [instalação do APK e co
 4. Registre receitas, despesas e compromissos. Em cada pendência, registre os
    pagamentos/recebimentos que realmente aconteceram.
 5. Em **Ajustes**, acesse cartões, metas, recorrências, aparência e backups.
+
+Veja primeiro [faturas, parcelas e importação na versão 1.3](docs/VERSAO-1.3.md).
 
 Veja [contas e barras de limite na versão 1.2](docs/VERSAO-1.2.md) e [as instruções da versão 1.1](docs/VERSAO-1.1.md) para entender compras no crédito,
 pagamento de fatura, metas e previsões recorrentes. O saldo só muda com operações

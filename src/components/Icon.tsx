@@ -13,6 +13,12 @@ const paths = {
   out: 'M6 18 18 6M8 6h10v10',
   chevron: 'm9 5 7 7-7 7',
   plus: 'M12 5v14M5 12h14',
+  wallet: 'M3 6h17v15H3ZM3 6V3h14v3M15 11h6v5h-6Z',
+  card: 'M3 5h18v14H3ZM3 10h18M7 15h3',
+  transfer: 'M3 7h17l-4-4M21 17H4l4 4',
+  target: 'M21 12a9 9 0 1 1-9-9M17 12a5 5 0 1 1-5-5M12 12 21 3M17 3h4v4',
+  repeat: 'M3 7h16l-4-4M21 17H5l4 4M21 7v5M3 17v-5',
+  more: 'M4 5h6v6H4ZM14 5h6v6h-6ZM4 15h6v6H4ZM14 15h6v6h-6Z',
 } as const;
 export type IconName = keyof typeof paths;
 export function Icon({

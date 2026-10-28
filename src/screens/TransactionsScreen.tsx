@@ -1,3 +1,4 @@
+import { transactionMonth } from '../domain/billing';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -20,7 +21,7 @@ export default function TransactionsScreen() {
     .filter(
       (t) =>
         (filter === 'all' || t.type === filter) &&
-        (period === 'all' || t.date.startsWith(today().slice(0, 7))) &&
+        (period === 'all' || transactionMonth(t) === today().slice(0, 7)) &&
         `${t.title} ${data.categories.find((c) => c.id === t.categoryId)?.name}`
           .toLocaleLowerCase('pt-BR')
           .includes(search.toLocaleLowerCase('pt-BR')),

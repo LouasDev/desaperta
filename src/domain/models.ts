@@ -1,6 +1,7 @@
 import type { Flow } from './finance';
 export interface Settings {
   completed: boolean;
+  billReminders?: boolean;
 }
 export interface CashAccount {
   id: string;
@@ -12,6 +13,10 @@ export interface CreditCard {
   name: string;
   limit: number;
   openingUsed: number;
+  cycleConfigured?: boolean;
+  closingDay?: number;
+  dueDay?: number;
+  openingBillMonth?: string;
 }
 export interface Goal {
   id: string;

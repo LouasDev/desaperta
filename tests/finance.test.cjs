@@ -108,7 +108,7 @@ test('backup faz ida e volta e rejeita dados corrompidos ou inconsistentes', () 
     '{}',
     'null',
     'texto',
-    JSON.stringify({ ...data, version: 4 }),
+    JSON.stringify({ ...data, version: 5 }),
     JSON.stringify({ ...data, people: [] }),
     JSON.stringify({ ...data, transactions: [] }),
     JSON.stringify({ ...data, debts: [...data.debts, ...data.debts] }),

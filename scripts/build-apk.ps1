@@ -21,6 +21,8 @@ $passwordFile = Join-Path $signingRoot 'password.txt'
 if (!(Test-Path $passwordFile)) { throw 'Chave de assinatura local nao encontrada em .tools/signing.' }
 $env:DESAPERTA_KEY_PASSWORD = [IO.File]::ReadAllText($passwordFile)
 $env:DESAPERTA_KEYSTORE = (Join-Path $signingRoot 'desaperta.jks').Replace('\', '/')
+& node (Join-Path $projectRoot 'scripts/runtime-signature.cjs') --prebuild
+if ($LASTEXITCODE -ne 0) { throw 'Atualize a versao nativa antes de compilar.' }
 
 # Use a real, short path on the same Windows drive. SUBST conflicts with codegen's canonical paths.
 $buildMarker = Join-Path $BuildDirectory '.desaperta-build'
@@ -74,6 +76,8 @@ try {
     Copy-Item -LiteralPath 'android/app/build/outputs/apk/release/app-release.apk' -Destination $outputApk -Force
     & "$env:ANDROID_HOME\build-tools\36.0.0\apksigner.bat" verify --verbose $outputApk
     if ($LASTEXITCODE -ne 0) { throw 'Assinatura do APK invalida.' }
+    & node (Join-Path $projectRoot 'scripts/runtime-signature.cjs') --write
+    if ($LASTEXITCODE -ne 0) { throw 'Nao foi possivel registrar a compatibilidade nativa.' }
     Get-FileHash -LiteralPath $outputApk -Algorithm SHA256
 } finally {
     Pop-Location

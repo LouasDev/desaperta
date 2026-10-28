@@ -1,3 +1,5 @@
+import { savePurchase } from '../domain/purchases';
+import { cycleForDate, cycleDates } from '../domain/billing';
 import type { TransactionInput } from '../domain/finance';
 import { CashAccountPicker } from '../components/CashAccountPicker';
 import React, { useRef, useState } from 'react';
@@ -53,6 +55,8 @@ export default function TransactionFormScreen({
   const [cashAccountId, setCashAccountId] = useState(
     existing?.cashAccountId ?? route.params?.cashAccountId ?? data.cashAccounts[0].id,
   );
+  const [installments, setInstallments] = useState('1');
+  const [firstMonth, setFirstMonth] = useState(existing?.billMonth ?? '');
   const [repeat, setRepeat] = useState<'once' | 'monthly'>('once');
   const snapshot = JSON.stringify({
     type,
@@ -64,6 +68,8 @@ export default function TransactionFormScreen({
     cardId,
     cashAccountId,
     repeat,
+    installments,
+    firstMonth,
   });
   const initialSnapshot = useRef(snapshot);
   const allowLeave = useUnsavedChanges(snapshot !== initialSnapshot.current, saving);
@@ -78,9 +84,26 @@ export default function TransactionFormScreen({
         type,
         categoryId,
         account: type === 'expense' ? account : ('cash' as const),
-        ...(type === 'expense' && account === 'credit' ? { cardId } : { cashAccountId }),
+        ...(type === 'expense' && account === 'credit'
+          ? { cardId, billMonth: firstMonth || undefined }
+          : { cashAccountId, billMonth: undefined }),
       };
+      if (existing?.account === 'credit' && existing.billMonth) {
+        const card = data.cards.find((c) => c.id === existing.cardId)!;
+        if (
+          today() >= cycleDates(card, existing.billMonth).closingDate &&
+          !(await confirm({
+            title: 'Corrigir fatura fechada?',
+            message:
+              'Esta alteração recalcula uma fatura que já fechou. Confira o mês e os pagamentos registrados.',
+            accept: 'Corrigir registro',
+          }))
+        )
+          return;
+      }
       await commit((current) => {
+        if (!existing && input.account === 'credit' && repeat === 'once')
+          return savePurchase(current, input, Number(installments), firstMonth || undefined);
         if (!existing && repeat === 'monthly') {
           const next = saveRecurrence(current, {
             title: input.title,
@@ -119,7 +142,9 @@ export default function TransactionFormScreen({
       !existing ||
       !(await confirm({
         title: 'Excluir lançamento?',
-        message: 'Este registro sairá do histórico e o saldo será recalculado.',
+        message: existing.purchaseId
+          ? 'Todas as parcelas desta compra serão removidas juntas. Se houver pagamentos incompatíveis, desfaça-os antes.'
+          : 'Este registro sairá do histórico e o saldo será recalculado.',
         accept: 'Excluir lançamento',
         destructive: true,
       }))
@@ -138,6 +163,29 @@ export default function TransactionFormScreen({
     return (
       <Page title="Registro não encontrado" back={() => navigation.goBack()}>
         <Text style={styles.body}>Este lançamento não está mais disponível.</Text>
+      </Page>
+    );
+  if (existing?.purchaseId)
+    return (
+      <Page title="Compra parcelada" back={() => navigation.goBack()}>
+        <Card>
+          <Text style={styles.subtitle}>{existing.title}</Text>
+          <Text style={styles.body}>
+            Parcela {existing.installment}/{existing.installments} · {existing.billMonth} · R${' '}
+            {inputMoney(existing.amount)}
+          </Text>
+          <Text style={styles.small}>
+            Para corrigir valor, datas ou quantidade, remova a compra inteira e cadastre novamente.
+            As parcelas são mantidas juntas para preservar o total e o limite.
+          </Text>
+        </Card>
+        <ErrorText message={error} />
+        <Button
+          label="Excluir compra e todas as parcelas"
+          variant="danger"
+          onPress={remove}
+          disabled={saving}
+        />
       </Page>
     );
   if (existing?.cardPaymentFor)
@@ -250,12 +298,52 @@ export default function TransactionFormScreen({
             }}
           />
         )}
+        {type === 'expense' && account === 'credit' && (
+          <>
+            {data.cards.find((c) => c.id === cardId)?.cycleConfigured === false && (
+              <Button
+                label="Configurar ciclo do cartão"
+                variant="secondary"
+                onPress={() => navigation.navigate('CardForm', { id: cardId! })}
+              />
+            )}
+            {!existing && (
+              <Field
+                label="Número de parcelas *"
+                value={installments}
+                onChangeText={(value) => {
+                  setInstallments(value);
+                  if (Number(value) > 1) setRepeat('once');
+                }}
+                keyboardType="number-pad"
+                maxLength={2}
+                hint="Informe o valor TOTAL da compra no campo Valor. Use de 1 a 60 parcelas."
+              />
+            )}
+            <Field
+              label="Primeira fatura (AAAA-MM)"
+              value={firstMonth}
+              onChangeText={setFirstMonth}
+              maxLength={7}
+              placeholder="Automática pela data da compra"
+              hint="Mês do fechamento. Deixe vazio para calcular pelos dias do cartão. Você pode adiar a primeira parcela."
+            />
+            <Text style={styles.small}>
+              O total compromete o limite; cada fatura recebe somente sua parcela. Centavos são
+              distribuídos sem perder valor. Confira o ciclo no banco: a data de processamento pode
+              variar.
+            </Text>
+          </>
+        )}
         {!existing && (
           <>
             <Text style={styles.body}>Repetição</Text>
             <Chips
               value={repeat}
-              onChange={setRepeat}
+              onChange={(value) => {
+                setRepeat(value);
+                if (value === 'monthly') setInstallments('1');
+              }}
               options={[
                 { value: 'once', label: 'Só este lançamento' },
                 { value: 'monthly', label: 'Todo mês' },

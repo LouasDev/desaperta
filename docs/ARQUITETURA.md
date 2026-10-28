@@ -126,3 +126,11 @@ erDiagram
 ## Manutenção
 
 Abra `terminal.cmd` ou o terminal configurado do VS Code. Rode `npm test`, `npm run typecheck`, `npm run check` e `npm run format:check` antes de alterar a versão. Ao mudar o esquema, mantenha um leitor/migração da versão anterior antes de subir o número da versão. Nunca ignore falha de leitura salvando uma base vazia automaticamente.
+
+## Faturas e importação (1.3)
+
+`billing.ts` calcula ciclos e distribui pagamentos antigos. Cada transação de crédito guarda `billMonth`; compras parceladas têm `purchaseId`, `installment` e `installments`. Os centavos são distribuídos em `purchases.ts`, e o validador exige a sequência completa. O limite soma todas as parcelas, mas relatórios e metas usam o mês da fatura. `cycleConfigured` diferencia cartões antigos sem dias confirmados.
+
+`statements.ts` lê CSV/OFX e valida a importação em lote. `importKey` impede reimportação exata; a interface apresenta possíveis repetições e permite ignorar registros. Pagamentos importados usam a mesma função de baixa das faturas. Nenhum extrato é transmitido a um servidor.
+
+`reminders.ts` gera um plano puro de datas; `billNotifications.ts` agenda apenas notificações desta funcionalidade. `ReminderContext` serializa atualizações e expõe erros nas configurações. Permissão é solicitada somente pela ação explícita do usuário no Android.

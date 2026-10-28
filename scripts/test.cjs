@@ -7,6 +7,10 @@ for (const args of [
     'src/domain/finance.ts',
     'src/domain/planning.ts',
     'src/domain/accounts.ts',
+    'src/domain/purchases.ts',
+    'src/domain/statements.ts',
+    'src/domain/reminders.ts',
+    'src/domain/textEncoding.ts',
     'src/storage/snapshotRepository.ts',
     '--outDir',
     '.expo/test-build',
@@ -16,7 +20,13 @@ for (const args of [
     'ES2022',
     '--skipLibCheck',
   ],
-  ['--test', 'tests/finance.test.cjs', 'tests/planning.test.cjs', 'tests/accounts.test.cjs'],
+  [
+    '--test',
+    'tests/finance.test.cjs',
+    'tests/planning.test.cjs',
+    'tests/accounts.test.cjs',
+    'tests/billing.test.cjs',
+  ],
 ]) {
   const result = spawnSync(process.execPath, args, { cwd: root, stdio: 'inherit' });
   if (result.status !== 0) process.exit(result.status ?? 1);

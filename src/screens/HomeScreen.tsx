@@ -1,4 +1,6 @@
+import { recognized, transactionMonth } from '../domain/billing';
 import { CreditUsage } from '../components/CreditUsage';
+import { BillPreview } from '../components/BillPreview';
 import { accountBalance } from '../domain/accounts';
 import type { Palette, AppTheme } from '../styles/theme';
 import React from 'react';
@@ -22,7 +24,8 @@ export default function HomeScreen() {
   const summary = totals(data);
   const dueCount = dueOccurrences(data).length;
   const currentGoals = data.goals.filter((g) => g.month === today().slice(0, 7));
-  const recent = [...data.transactions]
+  const recent = data.transactions
+    .filter((t) => recognized(t, today()))
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
     .slice(0, 4);
   const upcoming = data.debts
@@ -34,7 +37,8 @@ export default function HomeScreen() {
       t.type === 'expense' &&
       !t.cardPaymentFor &&
       !t.transferId &&
-      t.date.startsWith(today().slice(0, 7)),
+      transactionMonth(t) === today().slice(0, 7) &&
+      recognized(t, today()),
   );
   const monthTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
   const categories = data.categories
@@ -107,48 +111,6 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
-      <View style={[styles.row, { gap: 10 }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Adicionar entrada"
-          onPress={() => navigation.navigate('TransactionForm', { type: 'income' })}
-          style={({ pressed }) => [home.quickAction, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Icon name="in" size={18} color={colors.green} />
-          <Text style={home.actionText}>Entrada</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Adicionar saída"
-          onPress={() => navigation.navigate('TransactionForm', { type: 'expense' })}
-          style={({ pressed }) => [home.quickAction, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Icon name="out" size={18} />
-          <Text style={home.actionText}>Saída</Text>
-        </Pressable>
-      </View>
-      <View style={{ gap: 10 }}>
-        <View style={styles.wrap}>
-          <Button
-            label="Cartões"
-            compact
-            variant="secondary"
-            onPress={() => navigation.navigate('Cards')}
-          />
-          <Button
-            label="Metas"
-            compact
-            variant="secondary"
-            onPress={() => navigation.navigate('Goals')}
-          />
-          <Button
-            label={dueCount ? `Recorrências (${dueCount})` : 'Recorrências'}
-            compact
-            variant="secondary"
-            onPress={() => navigation.navigate('Recurrences')}
-          />
-        </View>
-      </View>
       {!!data.cards.length && (
         <View style={{ gap: 12 }}>
           <View style={styles.between}>
@@ -169,6 +131,7 @@ export default function HomeScreen() {
               style={styles.card}
             >
               <CreditUsage card={card} used={cardTotals(data, card.id).outstanding} />
+              <BillPreview card={card} />
             </Pressable>
           ))}
         </View>

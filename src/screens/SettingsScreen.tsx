@@ -18,11 +18,15 @@ import { useTheme } from '../state/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootParams } from '../navigation/types';
+import { useReminders } from '../state/ReminderContext';
+import { requestBillPermission } from '../services/billNotifications';
+import { UpdatePanel } from '../components/UpdatePanel';
 export default function SettingsScreen() {
   const { colors, styles, clay } = useTheme();
   const { preference, setPreference } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { data, commit, saving } = useFinance();
+  const reminders = useReminders();
   const { notify, confirm } = useFeedback();
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
@@ -56,6 +60,40 @@ export default function SettingsScreen() {
   };
   return (
     <Page title="Ajustes">
+      <UpdatePanel />
+      <Card>
+        <Text style={styles.subtitle}>Lembretes de fatura</Text>
+        <Text style={styles.body}>
+          Avisos no fechamento e no vencimento, às 9h. Os próximos lembretes são atualizados ao
+          abrir o app. O Android pode atrasar avisos por economia de bateria.
+        </Text>
+        <Text style={styles.small}>
+          {reminders.status || 'Disponíveis no aplicativo Android instalado.'}
+        </Text>
+        <Button
+          label={
+            data.settings.billReminders ? 'Desativar lembretes' : 'Ativar lembretes no celular'
+          }
+          disabled={busy}
+          onPress={() =>
+            run(async () => {
+              if (!data.settings.billReminders) await requestBillPermission();
+              await commit((current) => ({
+                ...current,
+                settings: { ...current.settings, billReminders: !current.settings.billReminders },
+              }));
+            })
+          }
+        />
+        {data.settings.billReminders && (
+          <Button
+            label="Atualizar agendamento"
+            variant="secondary"
+            onPress={() => run(reminders.refresh)}
+            disabled={busy}
+          />
+        )}
+      </Card>
       <Card>
         <Text style={styles.subtitle}>Controle financeiro</Text>
         <Button
@@ -193,8 +231,8 @@ export default function SettingsScreen() {
         <Text style={styles.subtitle}>Como o saldo funciona</Text>
         <Text style={styles.body}>
           O saldo total é a soma dos saldos das suas contas. Compras no crédito contam nas
-          categorias na data da compra, mas só saem da conta no pagamento da fatura. Transferências
-          entre suas contas não são receitas ou despesas.
+          categorias no mês de cada fatura, mas só saem da conta no pagamento da fatura.
+          Transferências entre suas contas não são receitas ou despesas.
         </Text>
         <Text style={styles.body}>
           “Eu devo” e “Me devem” são compromissos. Eles só afetam o saldo quando você registra um
@@ -205,7 +243,7 @@ export default function SettingsScreen() {
           correto. Evite lançar a mesma operação duas vezes.
         </Text>
       </Card>
-      <Text style={[styles.small, { textAlign: 'center' }]}>Desaperta · versão 1.2.0</Text>
+      <Text style={[styles.small, { textAlign: 'center' }]}>Desaperta · versão 1.3.0</Text>
     </Page>
   );
 }

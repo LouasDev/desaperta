@@ -1,3 +1,4 @@
+import { cardBills, recognized, transactionMonth } from './billing';
 import {
   FinanceData,
   id,
@@ -40,7 +41,9 @@ export function saveCard(
     ...data,
     cards: editId
       ? data.cards.map((c) =>
-          c.id === editId ? { ...input, id: editId, name: text(input.name, 'Nome do cartão') } : c,
+          c.id === editId
+            ? { ...c, ...input, id: editId, name: text(input.name, 'Nome do cartão') }
+            : c,
         )
       : [...data.cards, { ...input, id: id(), name: text(input.name, 'Nome do cartão') }],
   });
@@ -72,12 +75,17 @@ export function payCard(
   amount: number,
   date: string,
   cashAccountId = data.cashAccounts[0].id,
+  billMonth?: string,
 ): FinanceData {
   const card = data.cards.find((c) => c.id === cardId);
   ensure(
     card && amount > 0 && amount <= cardTotals(data, cardId).outstanding,
     'O pagamento deve ser positivo e não pode ultrapassar os gastos pendentes.',
   );
+  if (billMonth) {
+    const bill = cardBills(data, cardId, today()).find((b) => b.month === billMonth);
+    ensure(bill && amount <= bill.balance, 'O pagamento ultrapassa o saldo desta fatura.');
+  }
   return validateData({
     ...data,
     transactions: [
@@ -92,6 +100,7 @@ export function payCard(
         cashAccountId,
         categoryId: 'expense-general',
         cardPaymentFor: cardId,
+        billMonth,
       },
     ],
   });
@@ -123,7 +132,8 @@ export function goalProgress(data: FinanceData, goal: Goal) {
         !t.transferId &&
         t.type === goal.type &&
         t.categoryId === goal.categoryId &&
-        t.date.startsWith(goal.month),
+        transactionMonth(t) === goal.month &&
+        recognized(t, today()),
     )
     .reduce((sum, t) => sum + t.amount, 0);
   return {
@@ -219,48 +229,79 @@ export function resolveOccurrence(
 export function personSummary(data: FinanceData, personId: string): string {
   const person = data.people.find((p) => p.id === personId);
   ensure(person, 'Pessoa não encontrada.');
+  const clean = (value: string) =>
+    value
+      .replace(/[*_~`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   const debts = data.debts
     .filter((d) => d.personId === personId && remaining(data, d) > 0)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  const sections: string[] = [
-    `Desaperta — Resumo de pendências`,
-    `Olá, ${person.name}! Segue o resumo dos valores em aberto:`,
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.title.localeCompare(b.title, 'pt-BR'));
+  const lines = [
+    '*Desaperta · Resumo de pendências*',
+    '',
+    `Oi, ${clean(person.name)}! Segue nosso resumo para conferir.`,
+    `Atualizado em ${displayDate(today())}`,
+    '',
   ];
   let receivable = 0,
     payable = 0;
   for (const direction of ['receivable', 'payable'] as const) {
     const group = debts.filter((d) => d.direction === direction);
     if (!group.length) continue;
-    sections.push(direction === 'receivable' ? 'Você me deve:' : 'Eu te devo:');
-    sections.push(
-      group
-        .map(
-          (d) =>
-            `${d.title} · venc. ${displayDate(d.dueDate)} — ${money(remaining(data, d))}${remaining(data, d) !== d.amount ? ` (restante de ${money(d.amount)})` : ''}`,
-        )
-        .join('\n'),
-    );
+    lines.push(direction === 'receivable' ? '*VOCÊ ME DEVE*' : '*EU TE DEVO*');
+    for (const debt of group) {
+      const rest = remaining(data, debt),
+        paid = debt.amount - rest;
+      lines.push(
+        `• ${clean(debt.title)} — *${money(rest)}*`,
+        `  Vencimento: ${displayDate(debt.dueDate)}`,
+      );
+      if (paid > 0)
+        lines.push(
+          `  Original: ${money(debt.amount)} · ${direction === 'receivable' ? 'já recebido' : 'já pago'}: ${money(paid)}`,
+        );
+    }
     const subtotal = group.reduce((sum, d) => sum + remaining(data, d), 0);
-    sections.push(`Subtotal: ${money(subtotal)}`);
+    lines.push(`*Subtotal: ${money(subtotal)}*`, '');
     if (direction === 'receivable') receivable = subtotal;
     else payable = subtotal;
   }
+  if (!debts.length) lines.push('Não temos valores em aberto.', '');
   const net = receivable - payable;
-  sections.push(
-    '----------------------------',
+  lines.push('────────────────────');
+  if (receivable && payable)
+    lines.push(
+      `A receber: ${money(receivable)}`,
+      `A pagar: ${money(payable)}`,
+      'Compensando os valores acima:',
+    );
+  lines.push(
     net > 0
-      ? `Saldo final: você me deve ${money(net)}.`
+      ? `*Saldo final: você me deve ${money(net)}.*`
       : net < 0
-        ? `Saldo final: eu te devo ${money(-net)}.`
-        : 'Saldo final: estamos em dia.',
-    '----------------------------',
+        ? `*Saldo final: eu te devo ${money(-net)}.*`
+        : debts.length
+          ? '*Saldo final: os valores se compensam.*'
+          : '*Saldo final: estamos em dia.*',
+    '────────────────────',
   );
-  return sections.join('\n\n');
+  if (debts.length)
+    lines.push(
+      '',
+      'Os pagamentos já registrados estão descontados.',
+      'Confere os itens e me avisa se precisar ajustar alguma coisa.',
+    );
+  return lines.join('\n');
 }
 export function whatsappURL(phone: string, message: string): string {
   ensure(
     /^\d{10,15}$/.test(phone) && !phone.startsWith('0'),
     'Cadastre um telefone com DDD e código do país.',
+  );
+  ensure(
+    message.length <= 8000,
+    'Este resumo é longo demais para abrir direto. Use Compartilhar resumo para enviar o texto completo.',
   );
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }

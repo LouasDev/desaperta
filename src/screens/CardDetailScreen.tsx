@@ -1,3 +1,4 @@
+import { cardBills, cycleDates, cycleForDate, shiftMonth } from '../domain/billing';
 import { CreditUsage } from '../components/CreditUsage';
 import { CashAccountPicker } from '../components/CashAccountPicker';
 import React, { useState } from 'react';
@@ -22,7 +23,14 @@ export default function CardDetailScreen({
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(displayDate(today()));
   const [error, setError] = useState('');
+  const [month, setMonth] = useState(
+    () =>
+      (card
+        ? cardBills(data, route.params.id, today()).find((b) => b.balance > 0)?.month
+        : undefined) ?? cycleForDate(today(), card?.closingDay),
+  );
   const [limit, setLimit] = useState(20);
+  const [showPayment, setShowPayment] = useState(false);
   if (!card)
     return (
       <Page title="Cartão não encontrado" back={() => navigation.goBack()}>
@@ -30,16 +38,26 @@ export default function CardDetailScreen({
       </Page>
     );
   const summary = cardTotals(data, card.id);
+  const bills = cardBills(data, card.id, today());
+  const bill = bills.find((b) => b.month === month) ?? {
+    month,
+    balance: 0,
+    charges: 0,
+    paid: 0,
+    opening: 0,
+    status: today() >= cycleDates(card, month).closingDate ? 'Fechada' : 'Futura',
+    ...cycleDates(card, month),
+  };
+  const future = bills.filter((b) => b.month > month).reduce((sum, b) => sum + b.balance, 0);
   const items = data.transactions
-    .filter((t) => t.cardId === card.id || t.cardPaymentFor === card.id)
+    .filter((t) => (t.cardId === card.id || t.cardPaymentFor === card.id) && t.billMonth === month)
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const pay = async () => {
     setError('');
     try {
       const cents = parseMoney(amount),
         iso = parseDate(date, false);
-      if (cents > summary.outstanding)
-        throw new Error('O pagamento ultrapassa os gastos pendentes.');
+      if (cents > bill.balance) throw new Error('O pagamento ultrapassa os gastos pendentes.');
       if (
         !(await confirm({
           title: 'Registrar pagamento da fatura?',
@@ -48,8 +66,9 @@ export default function CardDetailScreen({
         }))
       )
         return;
-      await commit((current) => payCard(current, card.id, cents, iso, cashAccountId));
+      await commit((current) => payCard(current, card.id, cents, iso, cashAccountId, month));
       setAmount('');
+      setShowPayment(false);
       notify('Fatura paga e crédito atualizado.');
     } catch (e) {
       setError(messageOf(e));
@@ -75,6 +94,20 @@ export default function CardDetailScreen({
   };
   return (
     <Page title={card.name} back={() => navigation.goBack()}>
+      {!card.cycleConfigured && (
+        <Card>
+          <Text style={styles.subtitle}>Confirme os dias deste cartão</Text>
+          <Text style={styles.body}>
+            Este cartão veio da versão anterior, que não guardava fechamento e vencimento. O ciclo
+            padrão é dia 25/5. Edite o cartão para usar as datas reais antes de cadastrar compras
+            parceladas ou ativar os lembretes.
+          </Text>
+          <Button
+            label="Configurar fechamento e vencimento"
+            onPress={() => navigation.navigate('CardForm', { id: card.id })}
+          />
+        </Card>
+      )}
       <Card>
         <CreditUsage card={card} used={summary.outstanding} />
         <Button
@@ -89,8 +122,64 @@ export default function CardDetailScreen({
           }
         />
       </Card>
+      <Card>
+        <View style={styles.between}>
+          <Button
+            label="← Anterior"
+            compact
+            variant="secondary"
+            onPress={() => {
+              setMonth(shiftMonth(month, -1));
+              setLimit(20);
+            }}
+          />
+          <Text style={styles.subtitle}>{month.split('-').reverse().join('/')}</Text>
+          <Button
+            label="Próxima →"
+            compact
+            variant="secondary"
+            onPress={() => {
+              setMonth(shiftMonth(month, 1));
+              setLimit(20);
+            }}
+          />
+        </View>
+        <Text
+          style={[
+            styles.eyebrow,
+            { color: bill.status === 'Vencida' ? colors.red : colors.accent },
+          ]}
+        >
+          FATURA {bill.status.toUpperCase()}
+        </Text>
+        <Text style={[styles.title, { fontSize: 34 }]}>{money(bill.balance)}</Text>
+        <Text style={styles.body}>
+          Fecha {displayDate(bill.closingDate)} · vence {displayDate(bill.dueDate)}
+        </Text>
+        <Text style={styles.small}>
+          Compras {money(bill.charges)} · pagamentos {money(bill.paid)}
+        </Text>
+        {!!bill.opening && (
+          <Text style={styles.small}>
+            Inclui {money(bill.opening)} do saldo anterior ao cadastro.
+          </Text>
+        )}
+        <Text style={styles.body}>Próximas faturas: {money(future)}</Text>
+        <Text style={styles.small}>
+          {today() >= bill.closingDate
+            ? 'Fatura fechada: novas compras pertencem ao próximo ciclo. Correções de registros antigos continuam disponíveis.'
+            : 'O total desta fatura contém só as parcelas deste mês. O limite acima considera também todas as parcelas futuras.'}
+        </Text>
+      </Card>
       <ErrorText message={error} />
-      {summary.outstanding > 0 && (
+      {bill.balance > 0 && (
+        <Button
+          label={showPayment ? 'Ocultar pagamento' : 'Registrar pagamento desta fatura'}
+          variant="secondary"
+          onPress={() => setShowPayment(!showPayment)}
+        />
+      )}
+      {bill.balance > 0 && showPayment && (
         <Card>
           <Text style={styles.subtitle}>Pagamento da fatura</Text>
           <CashAccountPicker
@@ -106,10 +195,10 @@ export default function CardDetailScreen({
             maxLength={20}
           />
           <Button
-            label={`Preencher total: ${money(summary.outstanding)}`}
+            label={`Preencher total: ${money(bill.balance)}`}
             variant="secondary"
             compact
-            onPress={() => setAmount(inputMoney(summary.outstanding))}
+            onPress={() => setAmount(inputMoney(bill.balance))}
           />
           <Field label="Data do pagamento *" value={date} onChangeText={setDate} maxLength={10} />
           <Button
@@ -119,7 +208,7 @@ export default function CardDetailScreen({
           />
         </Card>
       )}
-      <Text style={styles.subtitle}>Gastos e pagamentos</Text>
+      <Text style={styles.subtitle}>Itens desta fatura</Text>
       {items.slice(0, limit).map((item) => (
         <View key={item.id}>
           <TransactionRow

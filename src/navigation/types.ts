@@ -2,6 +2,9 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import { Direction, Flow } from '../domain/finance';
 export type TabParams = {
   Home: undefined;
+  Wallet: undefined;
+  New: undefined;
+  More: undefined;
   Transactions: undefined;
   Debts: { direction?: Direction } | undefined;
   Settings: undefined;
@@ -12,6 +15,7 @@ export type RootParams = {
     { id?: string; type?: Flow; cardId?: string; cashAccountId?: string } | undefined;
   DebtForm: { id?: string; direction?: Direction } | undefined;
   DebtDetail: { id: string };
+  ImportStatement: undefined;
   Cards: undefined;
   Accounts: undefined;
   AccountForm: { id?: string } | undefined;
