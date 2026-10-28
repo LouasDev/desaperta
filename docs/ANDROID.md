@@ -33,3 +33,9 @@ O APK não contém os dados financeiros usados no navegador. A validação da as
 Instale a versão 1.3.0 sobre a 1.2.0, usando o mesmo aplicativo, sem desinstalar. A chave de assinatura e o identificador são preservados e o banco local migra para a versão 4. Guarde um backup antes de atualizar.
 
 Este APK adiciona o mecanismo de atualizações remotas. Depois de instalado, consulte **Mais → Ajustes → Atualizações do app**. Veja [como publicar melhorias sem reinstalar](ATUALIZACOES.md). Recursos nativos continuam exigindo novo APK.
+
+Durante a compilação, o script reserva temporariamente uma unidade livre entre G, H e J para o SDK e o cache Gradle, evitando limites de 260 caracteres em cabeçalhos nativos. Os fontes permanecem no caminho real; o mapeamento é removido ao concluir. Não é necessário mudar o suporte global a caminhos longos do Windows.
+
+## Pacote 1.3.0 validado
+
+O instalador `Desaperta-1.3.0.apk` foi gerado em 28/10/2026, com 42.084.825 bytes e SHA-256 `34c6a1c97f4111e9d7c6c795db2fb4176f59e6d9246b09827996aadc4250cd3f`. A assinatura de release, o alinhamento do APK, o identificador do app, a versão 1.3.0/código 2 e as bibliotecas ARM de 32 e 64 bits foram conferidos antes da distribuição.

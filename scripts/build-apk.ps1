@@ -38,6 +38,14 @@ foreach ($sourceDirectory in @('src', 'assets', 'node_modules')) {
     & robocopy.exe (Join-Path $projectRoot $sourceDirectory) (Join-Path $BuildDirectory $sourceDirectory) /E /XD .cxx .gradle /NFL /NDL /NJH /NJS /NP
     if ($LASTEXITCODE -ge 8) { throw "Falha ao copiar $sourceDirectory para a pasta de compilacao." }
 }
+$toolDrive = @('G:', 'H:', 'J:') | Where-Object { !(Test-Path "$_\") } | Select-Object -First 1
+if (!$toolDrive) { throw 'Nenhuma unidade temporaria disponivel para o Android SDK (G, H, J).' }
+& subst.exe $toolDrive $AndroidToolsDirectory
+if ($LASTEXITCODE -ne 0) { throw 'Nao foi possivel encurtar o caminho das ferramentas Android.' }
+# Only tools/cache use the mapped drive. App/codegen sources stay on their real C: paths.
+$env:ANDROID_HOME = Join-Path "$toolDrive\" 'sdk'
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+$env:GRADLE_USER_HOME = Join-Path "$toolDrive\" 'gradle'
 Push-Location $BuildDirectory
 try {
     $packageFile = Join-Path (Get-Location) 'package.json'
@@ -76,10 +84,22 @@ try {
     Copy-Item -LiteralPath 'android/app/build/outputs/apk/release/app-release.apk' -Destination $outputApk -Force
     & "$env:ANDROID_HOME\build-tools\36.0.0\apksigner.bat" verify --verbose $outputApk
     if ($LASTEXITCODE -ne 0) { throw 'Assinatura do APK invalida.' }
+    $badging = & "$env:ANDROID_HOME\build-tools\36.0.0\aapt.exe" dump badging $outputApk
+    if ($LASTEXITCODE -ne 0) { throw 'Nao foi possivel conferir a versao do APK.' }
+    $packageLine = ($badging | Select-String -Pattern '^package:').Line
+    $expectedApp = (Get-Content app.json -Raw | ConvertFrom-Json).expo
+    if (!$packageLine.Contains("name='$($expectedApp.android.package)'") -or !$packageLine.Contains("versionName='$appVersion'") -or !$packageLine.Contains("versionCode='$($expectedApp.android.versionCode)'")) {
+        throw 'O APK gerado nao corresponde ao identificador e a versao solicitados.'
+    }
+    & "$env:ANDROID_HOME\build-tools\36.0.0\zipalign.exe" -c -P 16 4 $outputApk
+    if ($LASTEXITCODE -ne 0) { throw 'Alinhamento do APK invalido.' }
     & node (Join-Path $projectRoot 'scripts/runtime-signature.cjs') --write
     if ($LASTEXITCODE -ne 0) { throw 'Nao foi possivel registrar a compatibilidade nativa.' }
     Get-FileHash -LiteralPath $outputApk -Algorithm SHA256
+    $apkDigest=(Get-FileHash -LiteralPath $outputApk -Algorithm SHA256).Hash.ToLower()
+    [IO.File]::WriteAllText((Join-Path $OutputDirectory "Desaperta-$appVersion.sha256"),"$apkDigest  Desaperta-$appVersion.apk`n")
 } finally {
     Pop-Location
+    & subst.exe $toolDrive /D
     Remove-Item Env:DESAPERTA_KEY_PASSWORD -ErrorAction SilentlyContinue
 }

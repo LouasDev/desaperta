@@ -1,6 +1,9 @@
 param([Parameter(Mandatory=$true)][string]$Message)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
+if($env:__UNSAFE_EXPO_HOME_DIRECTORY -and [IO.Path]::GetFullPath($env:__UNSAFE_EXPO_HOME_DIRECTORY) -eq [IO.Path]::GetFullPath((Join-Path $projectRoot '.expo-user'))){
+    Remove-Item Env:__UNSAFE_EXPO_HOME_DIRECTORY
+}
 $env:CI='1'
 $env:PATH="$projectRoot\.tools\node-v22.23.4-win-x64;$env:PATH"
 Push-Location $projectRoot
