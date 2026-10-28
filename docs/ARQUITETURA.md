@@ -17,7 +17,7 @@
 
 ## Dados e relacionamentos
 
-Todos os IDs são strings. Valores monetários são inteiros em centavos; datas são strings `AAAA-MM-DD`, sem conversão por fuso horário. O esquema atual é `3`, com migração dos backups das versões `1` e `2` preservando o histórico. O saldo inicial agora pertence a cada conta; transações e recorrências em dinheiro possuem `cashAccountId`. Transferências usam duas transações ligadas por `transferId`, excluídas das receitas, gastos e metas. Veja [Versão 1.2](VERSAO-1.2.md).
+Todos os IDs são strings. Valores monetários são inteiros em centavos; datas são strings `AAAA-MM-DD`, sem conversão por fuso horário. O esquema atual é `4`, com migração dos backups das versões `1`, `2` e `3` preservando o histórico. O saldo inicial pertence a cada conta; transações e recorrências em dinheiro possuem `cashAccountId`. Transferências usam duas transações ligadas por `transferId`, excluídas das receitas, gastos e metas. Compras no crédito guardam a fatura e as parcelas futuras. Veja [Versão 1.3](changelog/VERSAO-1.3.md).
 
 ```mermaid
 erDiagram
@@ -125,7 +125,7 @@ erDiagram
 
 ## Manutenção
 
-Abra `terminal.cmd` ou o terminal configurado do VS Code. Rode `npm test`, `npm run typecheck`, `npm run check` e `npm run format:check` antes de alterar a versão. Ao mudar o esquema, mantenha um leitor/migração da versão anterior antes de subir o número da versão. Nunca ignore falha de leitura salvando uma base vazia automaticamente.
+Abra `scripts\\windows\\terminal.cmd` ou um terminal nesta pasta. Rode `npm test`, `npm run typecheck`, `npm run check` e `npm run format:check` antes de alterar a versão. Ao mudar o esquema, mantenha um leitor/migração da versão anterior antes de subir o número da versão. Nunca ignore falha de leitura salvando uma base vazia automaticamente.
 
 ## Faturas e importação (1.3)
 

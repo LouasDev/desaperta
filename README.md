@@ -39,9 +39,9 @@ Veja [como publicar e receber atualizações](docs/ATUALIZACOES.md).
 
 Para instalar no celular Android sem Expo Go, consulte [instalação do APK e compilação local](docs/ANDROID.md).
 
-1. Abra `iniciar-web.cmd` para usar no navegador.
+1. Abra `scripts\\windows\\iniciar-web.cmd` para usar no navegador.
 2. Para desenvolver, abra esta pasta no VS Code. O terminal desta pasta já tem
-   Node e npm configurados. Você também pode abrir `terminal.cmd`.
+   Node e npm configurados. Você também pode abrir `scripts\\windows\\terminal.cmd`.
 3. Preencha a **Configuração inicial** com o saldo que você já tem e, se usar crédito,
    o limite total e os gastos anteriores ainda não pagos. Se já registrou o saldo
    inicial como uma entrada, use zero para não duplicar.
@@ -49,9 +49,9 @@ Para instalar no celular Android sem Expo Go, consulte [instalação do APK e co
    pagamentos/recebimentos que realmente aconteceram.
 5. Em **Ajustes**, acesse cartões, metas, recorrências, aparência e backups.
 
-Veja primeiro [faturas, parcelas e importação na versão 1.3](docs/VERSAO-1.3.md).
+Veja primeiro [faturas, parcelas e importação na versão 1.3](docs/changelog/VERSAO-1.3.md).
 
-Veja [contas e barras de limite na versão 1.2](docs/VERSAO-1.2.md) e [as instruções da versão 1.1](docs/VERSAO-1.1.md) para entender compras no crédito,
+Veja [contas e barras de limite na versão 1.2](docs/changelog/VERSAO-1.2.md) e [as instruções da versão 1.1](docs/changelog/VERSAO-1.1.md) para entender compras no crédito,
 pagamento de fatura, metas e previsões recorrentes. O saldo só muda com operações
 confirmadas; o app não realiza pagamentos bancários. A mensagem do WhatsApp abre
 preenchida para você revisar e enviar.
@@ -67,7 +67,7 @@ O projeto usa **Expo SDK 54**, conforme o template do professor. No Android,
 instale o Expo Go compatível em:
 https://expo.dev/go?sdkVersion=54&platform=android&device=true
 
-Conecte computador e celular à mesma rede Wi-Fi. Abra `iniciar-celular.cmd` e
+Conecte computador e celular à mesma rede Wi-Fi. Abra `scripts\\windows\\iniciar-celular.cmd` e
 escaneie o QR code. Se a rede bloquear, use `npm run tunnel` no terminal preparado;
 essa opção pode ser necessário instalar `@expo/ngrok`.
 No iPhone, versões anteriores do Expo Go têm disponibilidade limitada.

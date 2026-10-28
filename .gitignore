@@ -5,6 +5,10 @@ node_modules/
 .tools/
 .npm-cache/
 .expo-user/
+.claude/
+.vscode/
+CLAUDE.md
+AGENTS.md
 
 # Expo
 .expo/

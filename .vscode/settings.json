@@ -1,9 +1,0 @@
-{
-  "terminal.integrated.profiles.windows": {
-    "Desaperta": {
-      "path": "${env:windir}\\System32\\cmd.exe",
-      "args": ["/k", "\"${workspaceFolder}\\ambiente.cmd\""]
-    }
-  },
-  "terminal.integrated.defaultProfile.windows": "Desaperta"
-}
