@@ -116,5 +116,6 @@ https://github.com/isaalexandre10/projetoFinal
 O histórico original foi preservado. Repositório do projeto:
 https://github.com/LouasDev/desaperta
 
-A documentação acadêmica completa e a apresentação ainda são etapas separadas. Esta versão não
-faz integração bancária ou pagamentos reais: ela registra as operações informadas.
+Consulte a [documentação completa do projeto](docs/DOCUMENTACAO.md) para objetivo, escopo,
+funcionalidades, arquitetura, privacidade, validação e limitações. Esta versão não faz integração
+bancária automática nem pagamentos reais: ela registra as operações informadas.
